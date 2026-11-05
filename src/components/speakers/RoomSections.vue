@@ -16,7 +16,7 @@
     </div>
     <TransitionGroup
       tag="div"
-      class="relative flex flex-wrap gap-1.5 px-4 py-1"
+      class="relative grid grid-cols-4 gap-2 px-4 py-1"
       move-class="transition-transform duration-300"
       enter-active-class="transition-[opacity,transform] duration-200"
       leave-active-class="absolute transition-[opacity,transform] duration-150"

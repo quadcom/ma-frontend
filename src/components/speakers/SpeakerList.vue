@@ -122,7 +122,7 @@ const topRows = computed(() =>
     const player = props.players.find((p) => p.player_id === id);
     if (!player) return [];
     const group = groupColour(id);
-    const members = membersOf(id, props.players, bound.value);
+    const members = membersOf(id, Object.values(api.players), bound.value);
     // a group player is not a room of its own, so only its members are cards
     const speakers = !group
       ? []
