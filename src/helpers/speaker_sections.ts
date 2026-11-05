@@ -118,12 +118,22 @@ export function nextTopOrder(
 /**
  * The rooms that make up a permanent group player. A permanent group shows as
  * the group only; its rooms are never listed on their own (Adrian, 2026-11-05).
+ * A sync group lists its rooms as members, not as static members.
  */
 export function permanentGroupRooms(players: Player[]): Set<string> {
   return new Set(
     players
       .filter((player) => player.type === PlayerType.GROUP)
-      .flatMap((player) => player.static_group_members),
+      .flatMap((player) => [
+        ...player.static_group_members,
+        ...player.group_members,
+      ])
+      .filter(
+        (id) =>
+          !players.some(
+            (p) => p.player_id === id && p.type === PlayerType.GROUP,
+          ),
+      ),
   );
 }
 

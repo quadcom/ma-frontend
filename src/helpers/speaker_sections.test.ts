@@ -246,7 +246,9 @@ describe("permanentGroupRooms", () => {
     const players = [
       room("g", "Master Bedroom", {
         type: PlayerType.GROUP,
-        static_group_members: ["mb1", "mb2"],
+        static_group_members: ["mb1"],
+        // a sync group holds its rooms as members
+        group_members: ["mb2"],
       }),
       room("k", "Kitchen", { group_members: ["k", "d"] }),
     ];
