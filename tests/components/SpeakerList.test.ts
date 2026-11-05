@@ -5,7 +5,11 @@ import type {
   PlayerLocation,
 } from "@/helpers/speaker_sections";
 import { api, type MusicAssistantApi } from "@/plugins/api";
-import { PlaybackState, type Player } from "@/plugins/api/interfaces";
+import {
+  PlaybackState,
+  type Player,
+  PlayerType,
+} from "@/plugins/api/interfaces";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { player } from "../fixtures/player";
@@ -249,6 +253,21 @@ describe("GroupEditor", () => {
       "k",
       ["l"],
       undefined,
+    );
+  });
+
+  it("never offers the rooms of a permanent group player", () => {
+    api.players.pg = player({
+      player_id: "pg",
+      name: "Master Bedroom",
+      type: PlayerType.GROUP,
+      static_group_members: ["l"],
+      group_members: ["l"],
+    });
+    const wrapper = mountEditor();
+
+    expect(wrapper.find('[data-room-card][data-player-id="l"]').exists()).toBe(
+      false,
     );
   });
 

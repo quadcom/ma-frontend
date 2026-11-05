@@ -1,7 +1,7 @@
 <template>
   <div class="pb-6" data-speaker-list>
     <p
-      v-if="players.length === 0"
+      v-if="rooms.length === 0"
       class="text-muted-foreground px-3 py-8 text-center text-sm"
     >
       {{ $t("no_content") }}
@@ -71,6 +71,7 @@ import {
   boundLeaders,
   membersOf,
   nextTopOrder,
+  permanentGroupRooms,
   playingRoomIds,
   type SpeakerSection,
   speakerSections,
@@ -104,11 +105,17 @@ const { groupColour } = useGroupColours();
 
 const bound = computed(() => boundLeaders(Object.values(api.players)));
 
+// A permanent group player shows as the group only, never its rooms.
+const rooms = computed(() => {
+  const permanent = permanentGroupRooms(Object.values(api.players));
+  return props.players.filter((p) => !permanent.has(p.player_id));
+});
+
 const order = computed(() => {
-  const visibleIds = new Set(props.players.map((p) => p.player_id));
+  const visibleIds = new Set(rooms.value.map((p) => p.player_id));
   return nextTopOrder(
     props.topOrder,
-    playingRoomIds(props.players, bound.value),
+    playingRoomIds(rooms.value, bound.value),
     props.activeId,
   ).filter((id) => visibleIds.has(id));
 });
@@ -123,10 +130,10 @@ watch(
 
 const topRows = computed(() =>
   order.value.flatMap((id) => {
-    const player = props.players.find((p) => p.player_id === id);
+    const player = rooms.value.find((p) => p.player_id === id);
     if (!player) return [];
     const group = groupColour(id);
-    const members = membersOf(id, props.players, bound.value);
+    const members = membersOf(id, rooms.value, bound.value);
     // a group player is not a room of its own, so only its members are cards
     const speakers = !group
       ? []
@@ -148,14 +155,14 @@ const loneTopIds = computed(
 );
 
 const builtinRoom = computed(() =>
-  props.players.find(
+  rooms.value.find(
     (p) => isBuiltinPlayer(p) && !loneTopIds.value.has(p.player_id),
   ),
 );
 
 const sections = computed(() =>
   speakerSections(
-    props.players.filter(
+    rooms.value.filter(
       (p) =>
         !loneTopIds.value.has(p.player_id) &&
         p !== builtinRoom.value &&

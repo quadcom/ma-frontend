@@ -115,6 +115,18 @@ export function nextTopOrder(
   return [...keep, ...new Set(wanted.filter((id) => !keep.includes(id)))];
 }
 
+/**
+ * The rooms that make up a permanent group player. A permanent group shows as
+ * the group only; its rooms are never listed on their own (Adrian, 2026-11-05).
+ */
+export function permanentGroupRooms(players: Player[]): Set<string> {
+  return new Set(
+    players
+      .filter((player) => player.type === PlayerType.GROUP)
+      .flatMap((player) => player.static_group_members),
+  );
+}
+
 /** The rooms bound to the leader, sorted by name. */
 export function membersOf(
   leaderId: string,

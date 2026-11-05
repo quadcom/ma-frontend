@@ -37,6 +37,7 @@ import {
   boundLeaders,
   canLeaveOwnGroup,
   isLockedMember,
+  permanentGroupRooms,
   type SectionGroupAction,
   sectionGroupAction,
   type SpeakerSection,
@@ -73,10 +74,14 @@ const ownColour = computed(() => groupColour(leaderId.value));
 const isMember = (room: Player) =>
   bound.value.get(room.player_id) === leaderId.value;
 
+const permanentRooms = computed(() => permanentGroupRooms(allPlayers.value));
+
 // The rooms the leader can group with, and the leader itself; an unreachable
-// room is only offered while it is in this group, so it can be taken out.
+// room is only offered while it is in this group, so it can be taken out. The
+// rooms of a permanent group player never show on their own.
 const offered = computed(() =>
   allPlayers.value.filter((player) => {
+    if (permanentRooms.value.has(player.player_id)) return false;
     if (player.player_id === leaderId.value) {
       return player.type !== PlayerType.GROUP;
     }

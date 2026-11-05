@@ -7,6 +7,7 @@ import {
   membersOf,
   nextTopOrder,
   parseGrouping,
+  permanentGroupRooms,
   playingRoomIds,
   type PlayerLocation,
   sectionGroupAction,
@@ -237,5 +238,18 @@ describe("group editor", () => {
     expect(canLeaveOwnGroup(leader)).toBe(true);
     expect(canLeaveOwnGroup({ ...leader, type: PlayerType.GROUP })).toBe(false);
     expect(canLeaveOwnGroup(room("i", "Idle"))).toBe(false);
+  });
+});
+
+describe("permanentGroupRooms", () => {
+  it("lists the rooms of permanent group players only", () => {
+    const players = [
+      room("g", "Master Bedroom", {
+        type: PlayerType.GROUP,
+        static_group_members: ["mb1", "mb2"],
+      }),
+      room("k", "Kitchen", { group_members: ["k", "d"] }),
+    ];
+    expect([...permanentGroupRooms(players)]).toEqual(["mb1", "mb2"]);
   });
 });
