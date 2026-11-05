@@ -53,130 +53,47 @@
       <PanelDragHandle @dismiss="setMenuOpen(false)" />
       <div
         data-panel-drag-region
-        class="flex items-center justify-between gap-3 border-b px-4 pt-1 pb-3"
+        class="flex min-h-10 items-center gap-1 px-4 pt-1 pb-2"
       >
-        <div class="flex min-w-0 items-center gap-2">
-          <h2 class="truncate text-lg font-semibold">{{ $t("players") }}</h2>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              :aria-label="$t('tooltip.more_options')"
-            >
-              <EllipsisVertical class="size-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" class="z-[100001] min-w-[280px]">
-            <DropdownMenuLabel>
-              {{ $t("player_select.display_options") }}
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuCheckboxItem
-              :model-value="showSelectedPlayerFirst"
-              @select.prevent
-              @update:model-value="
-                setBooleanPreference(
-                  PLAYER_SELECT_PREFERENCES.showSelectedPlayerFirst,
-                  $event,
-                )
-              "
-            >
-              {{ $t("player_select.show_selected_player_first") }}
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              :model-value="showActivePlayersFirst"
-              @select.prevent
-              @update:model-value="
-                setBooleanPreference(
-                  PLAYER_SELECT_PREFERENCES.showActivePlayersFirst,
-                  $event,
-                )
-              "
-            >
-              {{ $t("player_select.show_active_players_first") }}
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              :model-value="showGroupMemberNames"
-              @select.prevent
-              @update:model-value="
-                setBooleanPreference(
-                  PLAYER_SELECT_PREFERENCES.showGroupMemberNames,
-                  $event,
-                )
-              "
-            >
-              {{ $t("player_select.show_grouped_players") }}
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              :model-value="showVolumeForActivePlayersOnly"
-              @select.prevent
-              @update:model-value="
-                setBooleanPreference(
-                  PLAYER_SELECT_PREFERENCES.showVolumeForActivePlayersOnly,
-                  $event,
-                )
-              "
-            >
-              {{ $t("player_select.active_player_volume_only") }}
-            </DropdownMenuCheckboxItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          v-if="editorLeader"
+          variant="ghost"
+          size="icon-sm"
+          class="-ml-2"
+          :aria-label="$t('player_select.back_to_players')"
+          @click="closeGroupEditor"
+        >
+          <ArrowLeft class="size-5" />
+        </Button>
+        <h2 class="min-w-0 truncate text-lg font-semibold">
+          {{
+            editorLeader
+              ? $t("player_select.group_with", {
+                  name: getPlayerDisplayName(editorLeader),
+                })
+              : $t("players")
+          }}
+        </h2>
         <p class="sr-only">{{ $t("tooltip.select_player") }}</p>
       </div>
 
       <div
         ref="playerList"
-        class="player-volume-scroller min-h-0 flex-1 overflow-y-auto pb-6"
+        class="player-volume-scroller min-h-0 flex-1 overflow-y-auto"
       >
-        <!-- outranks the selected player badge on the cards scrolling underneath -->
-        <div
-          v-if="showSearch"
-          class="bg-background sticky top-0 z-20 px-3 pt-3 pb-2"
-        >
-          <SearchInput
-            v-model="playerSearchQuery"
-            :placeholder="$t('search')"
-            clearable
-          />
-        </div>
-
-        <div class="space-y-2 px-3 pt-3">
-          <p
-            v-if="filteredPlayers.length === 0"
-            class="text-muted-foreground px-3 py-8 text-center text-sm"
-          >
-            {{ playerSearchQuery ? $t("no_content_filter") : $t("no_content") }}
-          </p>
-          <PlayerCard
-            v-for="player in filteredPlayers"
-            :id="player.player_id"
-            :key="player.player_id"
-            :data-player-id="player.player_id"
-            :player="player"
-            :show-volume-control="showVolumeControl(player)"
-            :show-menu-button="true"
-            :show-child-volumes="expandedVolumePlayerIds.has(player.player_id)"
-            :show-member-controls="
-              expandedMemberPlayerIds.has(player.player_id)
-            "
-            :show-group-controls="true"
-            :show-disabled-group-control="true"
-            :show-group-member-names="showGroupMemberNames"
-            group-member-layout="subtitle-list"
-            :stack-media-details="true"
-            :allow-power-control="true"
-            :group-control-expanded="
-              expandedMemberPlayerIds.has(player.player_id)
-            "
-            :group-controls-id="getGroupControlsId(player.player_id)"
-            :show-selected-indicator="true"
-            @click="selectPlayer"
-            @toggle-child-volumes="toggleChildVolumes"
-            @toggle-member-controls="toggleMemberControls"
-          />
-        </div>
+        <GroupEditor
+          v-if="editorLeader"
+          :leader="editorLeader"
+          @close="closeGroupEditor"
+        />
+        <SpeakerList
+          v-else
+          v-model:top-order="topOrder"
+          :players="visiblePlayers"
+          :active-id="store.activePlayerId"
+          @select="selectPlayer"
+          @open-group-editor="openGroupEditor"
+        />
       </div>
     </PopoverContent>
   </Popover>
@@ -184,23 +101,16 @@
 
 <script setup lang="ts">
 import PanelDragHandle from "@/components/PanelDragHandle.vue";
-import PlayerCard from "@/components/PlayerCard.vue";
+import GroupEditor from "@/components/speakers/GroupEditor.vue";
+import SpeakerList from "@/components/speakers/SpeakerList.vue";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Popover,
   PopoverAnchor,
   PopoverContent,
 } from "@/components/ui/popover";
-import { SearchInput } from "@/components/ui/search-input";
 import { useOrderedPlayers } from "@/composables/useOrderedPlayers";
+import { useSpeakerLocations } from "@/composables/useSpeakerLocations";
 import { useUserPreferences } from "@/composables/userPreferences";
 import { preventOnScreenKeyboardOnOpen } from "@/helpers/dialog_focus";
 import {
@@ -215,6 +125,7 @@ import {
   isBuiltinPlayer,
   isPlayerActive,
   isSelectablePlayer,
+  playerVisible,
 } from "@/helpers/players";
 import { api } from "@/plugins/api";
 import { PlayerType, Scope, type Player } from "@/plugins/api/interfaces";
@@ -222,49 +133,28 @@ import { authManager } from "@/plugins/auth";
 import { eventbus } from "@/plugins/eventbus";
 import { store } from "@/plugins/store";
 import { webPlayer } from "@/plugins/web_player";
-import { EllipsisVertical } from "@lucide/vue";
+import { ArrowLeft } from "@lucide/vue";
 import {
   computed,
   nextTick,
   onBeforeUnmount,
   onMounted,
-  reactive,
   ref,
   watch,
 } from "vue";
 
-const SEARCH_PLAYER_THRESHOLD = 10;
 // Stored instead of a built-in player id: those are unique per browser/app
 // session, so they are meaningless on the next visit or on another device.
 const BUILTIN_PLAYER_PREFERENCE = "<builtinplayer>";
-const PLAYER_SELECT_PREFERENCES = {
-  showVolumeForActivePlayersOnly: "playerSelect.showVolumeForActivePlayersOnly",
-  showSelectedPlayerFirst: "playerSelect.showSelectedPlayerFirst",
-  showActivePlayersFirst: "playerSelect.showActivePlayersFirst",
-  showGroupMemberNames: "playerSelect.showGroupMemberNames",
-} as const;
 
-const playerSearchQuery = ref("");
-const expandedVolumePlayerIds = reactive(new Set<string>());
-const expandedMemberPlayerIds = reactive(new Set<string>());
 const playerList = ref<HTMLElement>();
+// The room whose group editor is open, in place of the speaker list.
+const editorFor = ref<string>();
+// Order of the playing rooms on top; kept while the panel is closed, so a
+// room keeps its place when the list opens again.
+const topOrder = ref<string[]>([]);
 const { getPreference, setPreference } = useUserPreferences();
-const showVolumeForActivePlayersOnly = getPreference<boolean>(
-  PLAYER_SELECT_PREFERENCES.showVolumeForActivePlayersOnly,
-  true,
-);
-const showSelectedPlayerFirst = getPreference<boolean>(
-  PLAYER_SELECT_PREFERENCES.showSelectedPlayerFirst,
-  true,
-);
-const showActivePlayersFirst = getPreference<boolean>(
-  PLAYER_SELECT_PREFERENCES.showActivePlayersFirst,
-  true,
-);
-const showGroupMemberNames = getPreference<boolean>(
-  PLAYER_SELECT_PREFERENCES.showGroupMemberNames,
-  true,
-);
+const { refresh: refreshLocations } = useSpeakerLocations();
 let menuTrigger: HTMLElement | null = null;
 let lastInteractionWasKeyboard = false;
 let restoreFocusOnClose = false;
@@ -274,16 +164,22 @@ let autoSelectedPlayerId: string | undefined;
 // launches the setup flow, see selectPlayer), to a role that may set them up.
 // It also lists capture-only audio inputs (informational rows, so the device
 // stays discoverable).
+const allowNeedsSetup = () => authManager.hasScope(Scope.CONFIG_PLAYERS_WRITE);
 const orderedPlayers = useOrderedPlayers({
-  allowNeedsSetup: () => authManager.hasScope(Scope.CONFIG_PLAYERS_WRITE),
+  allowNeedsSetup,
   allowSources: true,
-  selectedPlayerFirst: showSelectedPlayerFirst,
-  activePlayersFirst: showActivePlayersFirst,
   includePausedAsActive: true,
 });
 
-const showSearch = computed(
-  () => orderedPlayers.value.length > SEARCH_PLAYER_THRESHOLD,
+// Grouped rooms stay listed: they show greyed under their heading.
+const visiblePlayers = computed(() =>
+  Object.values(api.players).filter((player) =>
+    playerVisible(player, true, allowNeedsSetup(), true),
+  ),
+);
+
+const editorLeader = computed(() =>
+  editorFor.value ? api.players[editorFor.value] : undefined,
 );
 
 // the fullscreen player covers the player bar, so the panel pops out of the
@@ -296,15 +192,6 @@ const popoutAnchor = computed(() =>
     : playerBarEndAnchor,
 );
 
-const filteredPlayers = computed(() => {
-  if (!showSearch.value) return orderedPlayers.value;
-  const query = playerSearchQuery.value.trim().toLocaleLowerCase();
-  if (!query) return orderedPlayers.value;
-  return orderedPlayers.value.filter((player) =>
-    getPlayerDisplayName(player).toLocaleLowerCase().includes(query),
-  );
-});
-
 watch(
   () => store.showPlayersMenu,
   (isOpen) => {
@@ -315,8 +202,8 @@ watch(
         activeElement instanceof HTMLElement && activeElement !== document.body
           ? activeElement
           : null;
-      expandActivePlayerGroupControls();
-      void scrollSelectedPlayerIntoView();
+      void refreshLocations();
+      openActivePlayerGroupEditor();
       return;
     }
     resetPanelState();
@@ -334,14 +221,9 @@ watch(
   },
 );
 
-watch(showSelectedPlayerFirst, (showFirst) => {
-  if (!showFirst && store.showPlayersMenu) {
-    void scrollSelectedPlayerIntoView();
-  }
-});
-
-watch(showSearch, (isVisible) => {
-  if (!isVisible) playerSearchQuery.value = "";
+// a leader that went away (removed, or disabled) takes its editor with it
+watch(editorLeader, (leader) => {
+  if (editorFor.value && !leader) editorFor.value = undefined;
 });
 
 watch(
@@ -371,7 +253,7 @@ onMounted(() => {
   document.addEventListener("keydown", markKeyboardInteraction, true);
   document.addEventListener("pointerdown", markPointerInteraction, true);
   checkDefaultPlayer();
-  if (store.showPlayersMenu) void scrollSelectedPlayerIntoView();
+  if (store.showPlayersMenu) void refreshLocations();
 });
 
 onBeforeUnmount(() => {
@@ -385,7 +267,13 @@ function setMenuOpen(isOpen: boolean) {
 
 function handleSheetKeydown(event: KeyboardEvent) {
   event.stopPropagation();
-  if (event.key === "Escape") setMenuOpen(false);
+  if (event.key !== "Escape") return;
+  // Escape steps back from the group editor to the list before closing
+  if (editorFor.value) {
+    closeGroupEditor();
+  } else {
+    setMenuOpen(false);
+  }
 }
 
 function handleSheetInteractOutside(event: Event) {
@@ -405,13 +293,6 @@ function handleSheetInteractOutside(event: Event) {
 
 function preventAutoFocus(event: Event) {
   event.preventDefault();
-}
-
-function setBooleanPreference(
-  key: (typeof PLAYER_SELECT_PREFERENCES)[keyof typeof PLAYER_SELECT_PREFERENCES],
-  value: boolean | "indeterminate",
-) {
-  if (typeof value === "boolean") void setPreference(key, value);
 }
 
 function markKeyboardInteraction() {
@@ -437,10 +318,10 @@ function selectPlayer(player: Player) {
     store.showPlayersMenu = false;
     return;
   }
-  // an audio input can't be a playback target; its row is informational
+  // an audio input can't be a playback target; its card is informational
   if (player.type === PlayerType.SOURCE) return;
+  // the list stays open: the "Active" label moves to the chosen room
   activatePlayer(player.player_id);
-  store.showPlayersMenu = false;
 }
 
 function activatePlayer(playerId: string) {
@@ -451,49 +332,28 @@ function activatePlayer(playerId: string) {
   store.activePlayerId = playerId;
 }
 
-function showVolumeControl(player: Player) {
-  return !showVolumeForActivePlayersOnly.value || isPlayerActive(player);
+function openGroupEditor(player: Player) {
+  editorFor.value = player.player_id;
+  playerList.value?.scrollTo?.({ top: 0 });
 }
 
-function toggleChildVolumes(player: Player) {
-  const playerId = player.player_id;
-  expandedMemberPlayerIds.delete(playerId);
-  toggleExpandedPlayer(expandedVolumePlayerIds, playerId);
-}
-
-function toggleMemberControls(player: Player) {
-  const playerId = player.player_id;
-  expandedVolumePlayerIds.delete(playerId);
-  toggleExpandedPlayer(expandedMemberPlayerIds, playerId);
-}
-
-function toggleExpandedPlayer(playerIds: Set<string>, playerId: string) {
-  if (playerIds.has(playerId)) {
-    playerIds.delete(playerId);
-  } else {
-    playerIds.add(playerId);
-  }
+function closeGroupEditor() {
+  editorFor.value = undefined;
 }
 
 /**
- * Open the group controls of the active player when the panel is opened from
+ * Open the group editor of the active player when the panel is opened from
  * the fullscreen player, where changing the group is the only reason to open it.
  */
-function expandActivePlayerGroupControls() {
+function openActivePlayerGroupEditor() {
   const player = store.activePlayer;
   if (!popoutFromFullscreen.value || !player || !canEditPlayerGroup(player))
     return;
-  expandedMemberPlayerIds.add(player.player_id);
-}
-
-function getGroupControlsId(playerId: string) {
-  return `player-select-group-${encodeURIComponent(playerId)}`;
+  editorFor.value = player.player_id;
 }
 
 function resetPanelState() {
-  playerSearchQuery.value = "";
-  expandedVolumePlayerIds.clear();
-  expandedMemberPlayerIds.clear();
+  editorFor.value = undefined;
 }
 
 function checkDefaultPlayer() {
@@ -569,21 +429,6 @@ function selectBuiltinPlayer() {
 
 function isSelectablePlayerId(playerId: string | null | undefined) {
   return !!playerId && isSelectablePlayer(api.players[playerId]);
-}
-
-async function scrollSelectedPlayerIntoView() {
-  if (showSelectedPlayerFirst.value || !store.showPlayersMenu) {
-    return;
-  }
-
-  await nextTick();
-  const activePlayerId = store.activePlayerId;
-  if (!activePlayerId) return;
-
-  const activePlayerElement = Array.from(
-    playerList.value?.querySelectorAll<HTMLElement>("[data-player-id]") ?? [],
-  ).find((element) => element.dataset.playerId === activePlayerId);
-  activePlayerElement?.scrollIntoView?.({ block: "nearest" });
 }
 </script>
 
