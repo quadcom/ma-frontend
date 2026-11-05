@@ -6,18 +6,21 @@
     >
       {{ $t("no_content") }}
     </p>
+    <!-- A group's row comes and goes with its speakers, a big shift, so it
+         fades; a lone room changes in place at once. -->
     <TransitionGroup
       tag="div"
       class="relative space-y-2 px-4 pt-1"
       move-class="transition-transform duration-500"
-      enter-active-class="transition-[opacity,transform] duration-1500 ease-out"
-      leave-active-class="absolute inset-x-4 transition-[opacity,transform] duration-1500 ease-in"
-      enter-from-class="-translate-y-2 opacity-0"
-      leave-to-class="-translate-y-2 opacity-0"
+      enter-active-class="transition-[opacity,transform] duration-500 ease-out data-lone:duration-0"
+      leave-active-class="absolute inset-x-4 transition-[opacity,transform] duration-500 ease-in data-lone:duration-0"
+      enter-from-class="-translate-y-2 opacity-0 data-lone:translate-y-0 data-lone:opacity-100"
+      leave-to-class="-translate-y-2 opacity-0 data-lone:translate-y-0 data-lone:opacity-100"
     >
       <div
         v-for="row in topRows"
         :key="row.player.player_id"
+        :data-lone="row.speakers.length === 0 ? '' : undefined"
         class="space-y-1.5"
       >
         <PlayingRoomRow
