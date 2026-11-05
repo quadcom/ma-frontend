@@ -6,44 +6,50 @@
     >
       {{ $t("no_content") }}
     </p>
-    <!-- A group's row comes and goes with its speakers, a big shift, so it
-         fades; a lone room changes in place at once. -->
+    <!-- A group's row comes and goes with its speakers, a big shift: it opens
+         and folds away where it stands, fading, so what is below glides
+         instead of jumping (Adrian, 2026-11-05: 0.5 s, ease-out). A lone room
+         changes at once. -->
     <TransitionGroup
       tag="div"
-      class="relative space-y-2 px-4 pt-1"
-      move-class="transition-transform duration-500"
-      enter-active-class="transition-[opacity,transform] duration-500 ease-out data-lone:duration-0"
-      leave-active-class="absolute inset-x-4 transition-[opacity,transform] duration-500 ease-in data-lone:duration-0"
-      enter-from-class="-translate-y-2 opacity-0 data-lone:translate-y-0 data-lone:opacity-100"
-      leave-to-class="-translate-y-2 opacity-0 data-lone:translate-y-0 data-lone:opacity-100"
+      class="px-4 pt-1"
+      enter-active-class="transition-[grid-template-rows,opacity] duration-500 ease-out data-lone:duration-0"
+      leave-active-class="transition-[grid-template-rows,opacity] duration-500 ease-out data-lone:duration-0"
+      enter-from-class="grid-rows-[0fr] opacity-0 data-lone:grid-rows-[1fr] data-lone:opacity-100"
+      leave-to-class="grid-rows-[0fr] opacity-0 data-lone:grid-rows-[1fr] data-lone:opacity-100"
     >
       <div
         v-for="row in topRows"
         :key="row.player.player_id"
         :data-lone="row.speakers.length === 0 ? '' : undefined"
-        class="space-y-1.5"
+        class="grid grid-rows-[1fr]"
       >
-        <PlayingRoomRow
-          :player="row.player"
-          :active="row.player.player_id === activeId"
-          :group="row.group"
-          @select="emit('select', $event)"
-          @open-group-editor="emit('openGroupEditor', $event)"
-        />
-        <div v-if="row.speakers.length > 0" class="grid grid-cols-4 gap-2 pl-4">
-          <RoomCard
-            v-for="speaker in row.speakers"
-            :key="speaker.player_id"
-            :player="speaker"
+        <div class="min-h-0 space-y-1.5 overflow-hidden pb-2">
+          <PlayingRoomRow
+            :player="row.player"
+            :active="row.player.player_id === activeId"
             :group="row.group"
-            inert
+            @select="emit('select', $event)"
+            @open-group-editor="emit('openGroupEditor', $event)"
           />
+          <div
+            v-if="row.speakers.length > 0"
+            class="grid grid-cols-4 gap-2 pl-4"
+          >
+            <RoomCard
+              v-for="speaker in row.speakers"
+              :key="speaker.player_id"
+              :player="speaker"
+              :group="row.group"
+              inert
+            />
+          </div>
         </div>
       </div>
     </TransitionGroup>
     <Separator
       v-if="topRows.length > 0 && (sections.length > 0 || builtinRoom)"
-      class="mt-4 mb-3"
+      class="mt-2 mb-3"
     />
     <RoomSections :sections="sections">
       <template #card="{ room }">
