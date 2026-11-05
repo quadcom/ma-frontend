@@ -39,8 +39,10 @@
 <script setup lang="ts">
 import PlayerIcon from "@/components/PlayerIcon.vue";
 import { Button } from "@/components/ui/button";
+import { useSpeakerList } from "@/composables/useSpeakerList";
 import { usePopoutTriggerHover } from "@/composables/usePopoutTriggerHover";
 import { getPlayerDisplayName } from "@/helpers/players";
+import { PlayerType } from "@/plugins/api/interfaces";
 import { $t } from "@/plugins/i18n";
 import { store } from "@/plugins/store";
 import { computed } from "vue";
@@ -48,11 +50,16 @@ import { computed } from "vue";
 const { suppressHover, onPointerEnter } = usePopoutTriggerHover(
   () => store.showPlayersMenu,
 );
-const playerName = computed(() =>
-  store.activePlayer
-    ? getPlayerDisplayName(store.activePlayer)
-    : $t("no_player"),
-);
+const { groupColour } = useSpeakerList();
+// a group of rooms goes by its colour, as in the speaker list
+const playerName = computed(() => {
+  const player = store.activePlayer;
+  if (!player) return $t("no_player");
+  const colour = groupColour(player.player_id);
+  return colour && player.type !== PlayerType.GROUP
+    ? colour.name
+    : getPlayerDisplayName(player);
+});
 const playerSelectLabel = computed(
   () => `${$t("tooltip.select_player")}: ${playerName.value}`,
 );

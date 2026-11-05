@@ -2787,16 +2787,32 @@
     "volume": "Volume",
     "grouped_volume": "Grouped volume",
     "player_select": {
-        "active_player_volume_only": "Only show volume sliders for active players",
+        "active": "Active",
+        "add_all": "Add all",
         "and_more": "...and {0} more",
+        "back_to_players": "Back to players",
         "disable_player_confirmation": "This player will be hidden until it is enabled again in player settings.",
+        "colours": {
+            "green": "Green",
+            "orange": "Orange",
+            "pink": "Pink",
+            "purple": "Purple",
+            "teal": "Teal",
+            "yellow": "Yellow"
+        },
         "disable_player_title": "Disable {0}?",
-        "display_options": "Display options",
+        "edit_group": "Group rooms with {name}",
+        "group_hint": "Click a room to add it or take it out",
+        "group_with": "Group with {name}",
+        "nothing_playing": "Nothing playing",
+        "other": "Other",
+        "paused": "Paused",
+        "playing": "Playing",
+        "remove_all": "Remove all",
         "rename_player": "Rename player",
         "rename_player_description": "Enter a new name for this player.",
-        "show_active_players_first": "Show active players first",
-        "show_grouped_players": "Show group members",
-        "show_selected_player_first": "Show selected player first"
+        "this_room": "This room",
+        "unavailable": "Unavailable"
     },
     "mark_played_partial_failure": "Could not update {0} episode(s)",
     "visualizer": {
@@ -3052,10 +3068,6 @@
             "player_select": {
                 "title": "Pick a player",
                 "description": "Choose where the music plays. Pick a player and press play."
-            },
-            "player_group": {
-                "title": "Group players",
-                "description": "Add other players to the one you picked, so they play the same music together in several rooms. Players that cannot join are not offered."
             }
         }
     },

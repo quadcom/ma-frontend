@@ -3,7 +3,6 @@
 // because every rule involved is unlayered in the compiled stylesheet
 // @vitest-environment happy-dom
 import footerSource from "@/layouts/default/Footer.vue?raw";
-import groupControlSource from "@/layouts/default/PlayerOSD/PlayerBarGroupControl.vue?raw";
 import playerSelectSource from "@/layouts/default/PlayerSelect.vue?raw";
 import viewSource from "@/layouts/default/View.vue?raw";
 import tokens from "@/styles/global.css?inline";
@@ -22,10 +21,7 @@ const PLAYER_CLEARANCE = "162px";
 
 // the backdrops behind the two player bar popouts, each of which has to stop
 // short of the navigation
-const BACKDROPS = [
-  ["the player select popout", playerSelectSource],
-  ["the group control popout", groupControlSource],
-] as const;
+const BACKDROPS = [["the player select popout", playerSelectSource]] as const;
 
 let styles: HTMLStyleElement[];
 
@@ -108,7 +104,6 @@ describe("mobile navigation height consumers", () => {
       tokens,
       extractStyle(viewSource, "the layout"),
       extractStyle(playerSelectSource, "the player select"),
-      extractStyle(groupControlSource, "the group control"),
       // the backdrops are taken out of the flow by a utility rather than by
       // their own rules, so those have to be here too
       utilities,

@@ -17,17 +17,24 @@ import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { nextTick } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { emitEvent, getPreference, hasScope, preferenceState, setPreference } =
-  vi.hoisted(() => ({
-    emitEvent: vi.fn(),
-    getPreference: vi.fn(),
-    hasScope: vi.fn((_scope: Scope) => true),
-    preferenceState: {
-      values: {} as Record<string, unknown>,
-      reactiveValues: undefined as Record<string, unknown> | undefined,
-    },
-    setPreference: vi.fn(),
-  }));
+const {
+  emitEvent,
+  getPreference,
+  hasScope,
+  preferenceState,
+  refreshLocations,
+  setPreference,
+} = vi.hoisted(() => ({
+  emitEvent: vi.fn(),
+  refreshLocations: vi.fn(),
+  getPreference: vi.fn(),
+  hasScope: vi.fn((_scope: Scope) => true),
+  preferenceState: {
+    values: {} as Record<string, unknown>,
+    reactiveValues: undefined as Record<string, unknown> | undefined,
+  },
+  setPreference: vi.fn(),
+}));
 
 vi.mock("@/plugins/api", async () => {
   const { reactive } = await vi.importActual<typeof import("vue")>("vue");
@@ -121,6 +128,14 @@ vi.mock("@/composables/userPreferences", async () => {
   };
 });
 
+vi.mock("@/composables/useSpeakerList", () => ({
+  useSpeakerList: () => ({
+    refresh: refreshLocations,
+    groupColour: () => undefined,
+    onHandover: () => () => {},
+  }),
+}));
+
 vi.mock("@/helpers/players", () => ({
   canEditPlayerGroup: (player: Player) => player.can_group_with.length > 0,
   getPlayerDisplayName: (player: Player) =>
@@ -147,77 +162,44 @@ vi.mock("@/helpers/players", () => ({
 // the real store computes these; on the mock they are plain writable state
 const store = storeModule as typeof storeModule & { mobileLayout: boolean };
 
-const PlayerCardStub = {
-  props: [
-    "player",
-    "showVolumeControl",
-    "showChildVolumes",
-    "showMemberControls",
-    "showGroupControls",
-    "showDisabledGroupControl",
-    "showGroupMemberNames",
-    "groupMemberLayout",
-    "stackMediaDetails",
-    "groupControlExpanded",
-    "groupControlsId",
-    "showSelectedIndicator",
-  ],
-  emits: ["click", "toggle-child-volumes", "toggle-member-controls"],
+// the list and the editor have their own tests; here they only report which
+// players they were given and pass clicks back up
+const SpeakerListStub = {
+  name: "SpeakerList",
+  props: ["players", "activeId", "topOrder"],
+  emits: ["select", "openGroupEditor", "update:topOrder"],
   template: `
-    <article
-      class="player-card"
-      :data-player-id="player.player_id"
-      :data-volume-control="showVolumeControl ? 'true' : 'false'"
-      :data-child-volumes="showChildVolumes ? 'true' : 'false'"
-      :data-member-controls="showMemberControls ? 'true' : 'false'"
-      :data-disabled-group-control="showDisabledGroupControl ? 'true' : 'false'"
-      :data-group-member-names="showGroupMemberNames ? 'true' : 'false'"
-      :data-group-member-layout="groupMemberLayout"
-      :data-stack-media-details="stackMediaDetails ? 'true' : 'false'"
-      :data-group-control-expanded="groupControlExpanded ? 'true' : 'false'"
-      :data-selected-indicator="showSelectedIndicator ? 'true' : 'false'"
-    >
-      <button class="select-player" @click="$emit('click', player)">
-        {{ player.name }}
-      </button>
-      <button
-        class="volume-toggle"
-        @click="$emit('toggle-child-volumes', player)"
-      />
-      <button
-        class="member-toggle"
-        data-player-group-control
-        @click="$emit('toggle-member-controls', player, $event.currentTarget)"
-      />
-    </article>
+    <div class="speaker-list">
+      <article
+        v-for="player in players"
+        :key="player.player_id"
+        class="player-card"
+        :data-player-id="player.player_id"
+      >
+        <button class="select-player" @click="$emit('select', player)">
+          {{ player.name }}
+        </button>
+        <button
+          class="open-group-editor"
+          @click="$emit('openGroupEditor', player)"
+        />
+      </article>
+    </div>
   `,
 };
 
-const SearchInputStub = {
-  props: ["modelValue"],
-  emits: ["update:modelValue"],
+const GroupEditorStub = {
+  name: "GroupEditor",
+  props: ["leader"],
+  emits: ["close"],
   template: `
-    <input
-      class="player-search"
-      :value="modelValue"
-      @input="$emit('update:modelValue', $event.target.value)"
-    />
+    <div class="group-editor" :data-leader-id="leader.player_id">
+      <button class="close-editor" @click="$emit('close')" />
+    </div>
   `,
 };
 
 const passthroughStub = { template: "<div><slot /></div>" };
-const DropdownMenuCheckboxItemStub = {
-  props: ["modelValue"],
-  emits: ["select", "update:modelValue"],
-  template: `
-    <button
-      class="preference-toggle"
-      @click="$emit('update:modelValue', !modelValue)"
-    >
-      <slot />
-    </button>
-  `,
-};
 const PopoverAnchorStub = {
   name: "PopoverAnchor",
   props: ["reference"],
@@ -332,15 +314,8 @@ function mountPlayerSelect() {
         $t: (key: string) => key,
       },
       stubs: {
-        PlayerCard: PlayerCardStub,
-        SearchInput: SearchInputStub,
-        DropdownMenu: passthroughStub,
-        DropdownMenuCheckboxItem: DropdownMenuCheckboxItemStub,
-        DropdownMenuContent: passthroughStub,
-        DropdownMenuItem: passthroughStub,
-        DropdownMenuLabel: passthroughStub,
-        DropdownMenuSeparator: passthroughStub,
-        DropdownMenuTrigger: passthroughStub,
+        SpeakerList: SpeakerListStub,
+        GroupEditor: GroupEditorStub,
         Popover: passthroughStub,
         PopoverAnchor: PopoverAnchorStub,
         PopoverContent: PopoverContentStub,
@@ -359,15 +334,8 @@ function mountPlayerSelectWithPopover() {
         $t: (key: string) => key,
       },
       stubs: {
-        PlayerCard: PlayerCardStub,
-        SearchInput: SearchInputStub,
-        DropdownMenu: passthroughStub,
-        DropdownMenuCheckboxItem: DropdownMenuCheckboxItemStub,
-        DropdownMenuContent: passthroughStub,
-        DropdownMenuItem: passthroughStub,
-        DropdownMenuLabel: passthroughStub,
-        DropdownMenuSeparator: passthroughStub,
-        DropdownMenuTrigger: passthroughStub,
+        SpeakerList: SpeakerListStub,
+        GroupEditor: GroupEditorStub,
       },
     },
   });
@@ -397,65 +365,6 @@ describe("PlayerSelect", () => {
     store.showFullscreenPlayer = false;
     store.showPlayersMenu = true;
     webPlayer.player_id = null;
-  });
-
-  it("orders the selected player, this device, then active players first", () => {
-    const activePlayer = createPlayer("active", "Kitchen");
-    api.players = {
-      office: createPlayer("office", "Office"),
-      bedroom: createPlayer("bedroom", "Bedroom", PlaybackState.PAUSED),
-      active: activePlayer,
-      builtin: createPlayer("builtin", "This device"),
-      attic: createPlayer("attic", "Attic", PlaybackState.PLAYING),
-      lounge: createPlayer("lounge", "Lounge"),
-    };
-    store.activePlayerId = activePlayer.player_id;
-
-    const wrapper = mountPlayerSelect();
-
-    expect(
-      wrapper
-        .findAll(".player-card")
-        .map((card) => card.attributes("data-player-id")),
-    ).toEqual(["active", "builtin", "attic", "bedroom", "lounge", "office"]);
-  });
-
-  it("leaves the selected player in normal list order when pinning is disabled", () => {
-    setPlayerSelectPreference("playerSelect.showSelectedPlayerFirst", false);
-    setPlayerSelectPreference("playerSelect.showActivePlayersFirst", false);
-    const selectedPlayer = createPlayer("selected", "Office");
-    api.players = {
-      kitchen: createPlayer("kitchen", "Kitchen"),
-      selected: selectedPlayer,
-      attic: createPlayer("attic", "Attic"),
-    };
-    store.activePlayerId = selectedPlayer.player_id;
-
-    const wrapper = mountPlayerSelect();
-
-    expect(
-      wrapper
-        .findAll(".player-card")
-        .map((card) => card.attributes("data-player-id")),
-    ).toEqual(["attic", "kitchen", "selected"]);
-  });
-
-  it("leaves active players in normal list order when prioritizing is disabled", () => {
-    setPlayerSelectPreference("playerSelect.showSelectedPlayerFirst", false);
-    setPlayerSelectPreference("playerSelect.showActivePlayersFirst", false);
-    api.players = {
-      office: createPlayer("office", "Office", PlaybackState.PLAYING),
-      bedroom: createPlayer("bedroom", "Bedroom", PlaybackState.PAUSED),
-      attic: createPlayer("attic", "Attic"),
-    };
-
-    const wrapper = mountPlayerSelect();
-
-    expect(
-      wrapper
-        .findAll(".player-card")
-        .map((card) => card.attributes("data-player-id")),
-    ).toEqual(["attic", "bedroom", "office"]);
   });
 
   it("waits for a remembered player instead of selecting the web player", async () => {
@@ -657,85 +566,7 @@ describe("PlayerSelect", () => {
     expect(setPreference).not.toHaveBeenCalled();
   });
 
-  it("moves a newly active player to the front", async () => {
-    const kitchen = createPlayer("kitchen", "Kitchen");
-    const office = createPlayer("office", "Office");
-    api.players = {
-      [kitchen.player_id]: kitchen,
-      [office.player_id]: office,
-    };
-    const wrapper = mountPlayerSelect();
-
-    store.activePlayerId = office.player_id;
-    await nextTick();
-
-    expect(
-      wrapper
-        .findAll(".player-card")
-        .map((card) => card.attributes("data-player-id")),
-    ).toEqual(["office", "kitchen"]);
-  });
-
-  it("shows search only when more than ten players are visible", () => {
-    api.players = Object.fromEntries(
-      Array.from({ length: 10 }, (_, index) => {
-        const player = createPlayer(`player-${index}`, `Player ${index}`);
-        return [player.player_id, player];
-      }),
-    );
-
-    const tenPlayers = mountPlayerSelect();
-    expect(tenPlayers.find(".player-search").exists()).toBe(false);
-    tenPlayers.unmount();
-
-    const extraPlayer = createPlayer("player-10", "Player 10");
-    api.players[extraPlayer.player_id] = extraPlayer;
-
-    const elevenPlayers = mountPlayerSelect();
-    expect(elevenPlayers.find(".player-search").exists()).toBe(true);
-  });
-
-  it("filters the ordered list by player name", async () => {
-    api.players = Object.fromEntries(
-      Array.from({ length: 11 }, (_, index) => {
-        const name = index === 7 ? "Living room" : `Player ${index}`;
-        const player = createPlayer(`player-${index}`, name);
-        return [player.player_id, player];
-      }),
-    );
-    const wrapper = mountPlayerSelect();
-
-    await wrapper.find(".player-search").setValue("living");
-
-    expect(
-      wrapper
-        .findAll(".player-card")
-        .map((card) => card.attributes("data-player-id")),
-    ).toEqual(["player-7"]);
-  });
-
-  it("filters the built-in player by the name it is shown with", async () => {
-    api.players = Object.fromEntries(
-      Array.from({ length: 11 }, (_, index) => {
-        const player =
-          index === 7
-            ? createPlayer("builtin", "Marcel's Mac (Chrome)")
-            : createPlayer(`player-${index}`, `Player ${index}`);
-        return [player.player_id, player];
-      }),
-    );
-    const wrapper = mountPlayerSelect();
-
-    await wrapper.find(".player-search").setValue("this device");
-
-    expect(
-      wrapper
-        .findAll(".player-card")
-        .map((card) => card.attributes("data-player-id")),
-    ).toEqual(["builtin"]);
-  });
-
-  it("selects a player and closes the sheet from the card action", async () => {
+  it("selects a player and keeps the list open", async () => {
     const player = createPlayer("kitchen", "Kitchen");
     const other = createPlayer("attic", "Attic");
     api.players = { [player.player_id]: player, [other.player_id]: other };
@@ -747,7 +578,8 @@ describe("PlayerSelect", () => {
       .trigger("click");
 
     expect(store.activePlayerId).toBe(player.player_id);
-    expect(store.showPlayersMenu).toBe(false);
+    // the "Active" label moves to the chosen room; the list stays
+    expect(store.showPlayersMenu).toBe(true);
   });
 
   it("lists an audio input without ever selecting it", async () => {
@@ -844,29 +676,6 @@ describe("PlayerSelect", () => {
     );
   });
 
-  it("enables the detailed card layout only in the selector", () => {
-    const player = createPlayer("kitchen", "Kitchen");
-    api.players = { [player.player_id]: player };
-
-    const wrapper = mountPlayerSelect();
-
-    expect(
-      wrapper.find(".player-card").attributes("data-group-member-names"),
-    ).toBe("true");
-    expect(
-      wrapper.find(".player-card").attributes("data-group-member-layout"),
-    ).toBe("subtitle-list");
-    expect(
-      wrapper.find(".player-card").attributes("data-stack-media-details"),
-    ).toBe("true");
-    expect(
-      wrapper.find(".player-card").attributes("data-disabled-group-control"),
-    ).toBe("true");
-    expect(
-      wrapper.find(".player-card").attributes("data-selected-indicator"),
-    ).toBe("true");
-  });
-
   it("keeps the cards inside the list that scrolls", () => {
     api.players = {
       kitchen: createPlayer("kitchen", "Kitchen"),
@@ -875,73 +684,8 @@ describe("PlayerSelect", () => {
 
     const scroller = mountPlayerSelect().get(".player-volume-scroller");
 
-    // this class is what PlayerVolume reaches the volume rows on these cards
-    // through; a card rendered outside it would silently lose the pan
     expect(scroller.classes()).toContain("overflow-y-auto");
     expect(scroller.findAll(".player-card")).toHaveLength(2);
-  });
-
-  it("shows volume controls only for playing and paused players by default", () => {
-    api.players = {
-      idle: createPlayer("idle", "Idle"),
-      paused: createPlayer("paused", "Paused", PlaybackState.PAUSED),
-      playing: createPlayer("playing", "Playing", PlaybackState.PLAYING),
-    };
-
-    const wrapper = mountPlayerSelect();
-    const volumeVisibility = Object.fromEntries(
-      wrapper
-        .findAll(".player-card")
-        .map((card) => [
-          card.attributes("data-player-id"),
-          card.attributes("data-volume-control"),
-        ]),
-    );
-
-    expect(volumeVisibility).toEqual({
-      idle: "false",
-      paused: "true",
-      playing: "true",
-    });
-  });
-
-  it("can hide grouped-player sublines", () => {
-    setPlayerSelectPreference("playerSelect.showGroupMemberNames", false);
-    const player = createPlayer("kitchen", "Kitchen");
-    api.players = { [player.player_id]: player };
-
-    const wrapper = mountPlayerSelect();
-
-    expect(
-      wrapper.find(".player-card").attributes("data-group-member-names"),
-    ).toBe("false");
-  });
-
-  it("persists display options as user preferences", async () => {
-    const wrapper = mountPlayerSelect();
-    const toggles = wrapper.findAll(".preference-toggle");
-
-    await toggles[0].trigger("click");
-    await toggles[1].trigger("click");
-    await toggles[2].trigger("click");
-    await toggles[3].trigger("click");
-
-    expect(setPreference).toHaveBeenCalledWith(
-      "playerSelect.showSelectedPlayerFirst",
-      false,
-    );
-    expect(setPreference).toHaveBeenCalledWith(
-      "playerSelect.showActivePlayersFirst",
-      false,
-    );
-    expect(setPreference).toHaveBeenCalledWith(
-      "playerSelect.showGroupMemberNames",
-      false,
-    );
-    expect(setPreference).toHaveBeenCalledWith(
-      "playerSelect.showVolumeForActivePlayersOnly",
-      false,
-    );
   });
 
   it("closes from the blurred backdrop", async () => {
@@ -1008,7 +752,7 @@ describe("PlayerSelect", () => {
   // ends up. A touchscreen is the gate either way: a phone held sideways gets
   // the desktop layout and still raises a keyboard.
   it.each([true, false])(
-    "focuses the panel instead of the search field on touch (mobile layout: %s)",
+    "focuses the panel instead of a control on touch (mobile layout: %s)",
     async (mobileLayout) => {
       store.isTouchscreen = true;
       store.mobileLayout = mobileLayout;
@@ -1137,42 +881,7 @@ describe("PlayerSelect", () => {
     trigger.remove();
   });
 
-  it("keeps inline grouping and child-volume controls mutually exclusive", async () => {
-    const player = createPlayer("group", "Everywhere", PlaybackState.PLAYING);
-    api.players = { [player.player_id]: player };
-    const wrapper = mountPlayerSelect();
-    const card = () => wrapper.find(".player-card");
-
-    expect(card().attributes("data-child-volumes")).toBe("false");
-    expect(card().attributes("data-member-controls")).toBe("false");
-
-    await wrapper.find(".member-toggle").trigger("click");
-    expect(card().attributes("data-member-controls")).toBe("true");
-    expect(card().attributes("data-group-control-expanded")).toBe("true");
-    expect(card().attributes("data-child-volumes")).toBe("false");
-
-    await wrapper.find(".volume-toggle").trigger("click");
-    expect(card().attributes("data-member-controls")).toBe("false");
-    expect(card().attributes("data-group-control-expanded")).toBe("false");
-    expect(card().attributes("data-child-volumes")).toBe("true");
-  });
-
-  it("allows inline grouping controls without showing an idle volume slider", async () => {
-    const player = createPlayer("group", "Everywhere");
-    api.players = { [player.player_id]: player };
-    const wrapper = mountPlayerSelect();
-
-    await wrapper.find(".member-toggle").trigger("click");
-
-    expect(wrapper.find(".player-card").attributes("data-volume-control")).toBe(
-      "false",
-    );
-    expect(
-      wrapper.find(".player-card").attributes("data-member-controls"),
-    ).toBe("true");
-  });
-
-  it("opens the grouping controls of the active player from the fullscreen player", async () => {
+  it("opens the group editor of the active player from the fullscreen player", async () => {
     const kitchen = createPlayer("kitchen", "Kitchen", PlaybackState.PLAYING);
     kitchen.can_group_with = ["attic"];
     api.players = {
@@ -1183,17 +892,17 @@ describe("PlayerSelect", () => {
     store.showFullscreenPlayer = true;
     store.showPlayersMenu = false;
     const wrapper = mountPlayerSelect();
-    const card = (playerId: string) =>
-      wrapper.find(`.player-card[data-player-id="${playerId}"]`);
 
     store.showPlayersMenu = true;
     await nextTick();
 
-    expect(card("kitchen").attributes("data-member-controls")).toBe("true");
-    expect(card("attic").attributes("data-member-controls")).toBe("false");
+    expect(wrapper.get(".group-editor").attributes("data-leader-id")).toBe(
+      "kitchen",
+    );
+    expect(wrapper.find(".speaker-list").exists()).toBe(false);
   });
 
-  it("keeps the grouping controls closed when opened from the player bar", async () => {
+  it("shows the speaker list when opened from the player bar", async () => {
     const kitchen = createPlayer("kitchen", "Kitchen", PlaybackState.PLAYING);
     kitchen.can_group_with = ["attic"];
     api.players = { kitchen };
@@ -1204,49 +913,56 @@ describe("PlayerSelect", () => {
     store.showPlayersMenu = true;
     await nextTick();
 
-    expect(
-      wrapper.find(".player-card").attributes("data-member-controls"),
-    ).toBe("false");
+    expect(wrapper.find(".group-editor").exists()).toBe(false);
+    expect(wrapper.find(".speaker-list").exists()).toBe(true);
   });
 
-  it("scrolls the selected player into view when it is not pinned", async () => {
-    const originalScrollIntoView = Object.getOwnPropertyDescriptor(
-      HTMLElement.prototype,
-      "scrollIntoView",
-    );
-    const scrollIntoView = vi.fn();
-    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-      configurable: true,
-      value: scrollIntoView,
-    });
-    setPlayerSelectPreference("playerSelect.showSelectedPlayerFirst", false);
-    setPlayerSelectPreference("playerSelect.showActivePlayersFirst", false);
-    const selectedPlayer = createPlayer("selected", "Zulu");
-    api.players = {
-      attic: createPlayer("attic", "Attic"),
-      selected: selectedPlayer,
-    };
-    store.activePlayerId = selectedPlayer.player_id;
+  it("reads where the speakers are each time the list opens", async () => {
     store.showPlayersMenu = false;
+    mountPlayerSelect();
+    expect(refreshLocations).not.toHaveBeenCalled();
 
-    const wrapper = mountPlayerSelect();
     store.showPlayersMenu = true;
     await nextTick();
-    await nextTick();
 
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+    expect(refreshLocations).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens a room's group editor in place of the list and steps back", async () => {
+    const kitchen = createPlayer("kitchen", "Kitchen", PlaybackState.PLAYING);
+    api.players = { kitchen };
+    const wrapper = mountPlayerSelect();
+
+    await wrapper.get(".open-group-editor").trigger("click");
+    expect(wrapper.get(".group-editor").attributes("data-leader-id")).toBe(
+      "kitchen",
+    );
+    expect(wrapper.text()).toContain("player_select.group_with");
+
+    // Escape steps back to the list before it closes the panel
+    await wrapper
+      .find('[data-testid="player-select-sheet"]')
+      .trigger("keydown", { key: "Escape" });
+    expect(wrapper.find(".group-editor").exists()).toBe(false);
+    expect(store.showPlayersMenu).toBe(true);
+
+    await wrapper.get(".open-group-editor").trigger("click");
+    await wrapper.get(".close-editor").trigger("click");
+    expect(wrapper.find(".speaker-list").exists()).toBe(true);
+  });
+
+  it("lists grouped rooms too, so they can show greyed under their heading", () => {
+    const kitchen = createPlayer("kitchen", "Kitchen");
+    kitchen.group_members = ["kitchen", "dining"];
+    const dining = createPlayer("dining", "Dining");
+    dining.synced_to = "kitchen";
+    api.players = { kitchen, dining };
+    const wrapper = mountPlayerSelect();
+
     expect(
-      (scrollIntoView.mock.instances[0] as HTMLElement).dataset.playerId,
-    ).toBe("selected");
-
-    if (originalScrollIntoView) {
-      Object.defineProperty(
-        HTMLElement.prototype,
-        "scrollIntoView",
-        originalScrollIntoView,
-      );
-    } else {
-      Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
-    }
+      wrapper
+        .findAll(".player-card")
+        .map((card) => card.attributes("data-player-id")),
+    ).toEqual(["kitchen", "dining"]);
   });
 });

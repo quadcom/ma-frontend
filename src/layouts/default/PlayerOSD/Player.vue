@@ -90,8 +90,6 @@
       </div>
       <div class="mediacontrols-bottom-right">
         <div class="flex items-center">
-          <!-- grouping sits beside play: both act on what this bar is playing -->
-          <PlayerBarGroupControl floating />
           <!-- player mobile control buttons -->
           <PlayerControls
             :visible-components="{
@@ -137,7 +135,6 @@ import { ImageColorPalette, paletteFromServer } from "@/helpers/utils";
 import { getBreakpointValue } from "@/plugins/breakpoint";
 import { store } from "@/plugins/store";
 import { computed, ref, watch } from "vue";
-import PlayerBarGroupControl from "./PlayerBarGroupControl.vue";
 import PlayerBarMobileVolumeSheet from "./PlayerBarMobileVolumeSheet.vue";
 import FavoriteMenuBtn from "./PlayerControlBtn/FavoriteMenuBtn.vue";
 import PlaybackSpeedBtn from "./PlayerControlBtn/PlaybackSpeedBtn.vue";
