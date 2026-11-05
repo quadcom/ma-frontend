@@ -117,12 +117,18 @@ const { list, groupColour } = useSpeakerList();
 const bound = computed(() => boundLeaders(Object.values(api.players)));
 
 // The rooms the server lists, or every visible player when it lists none.
+// This device's own player is hidden by default, and the server only knows it
+// as the caller's when it is bound to this connection (not the companion app's),
+// so the app adds it when the server leaves it out, as the stock list does.
 const rooms = computed(() => {
   const server = list.value;
   if (!server) return props.players;
-  return Object.keys(server.rooms)
+  const listed = Object.keys(server.rooms)
     .map((id) => api.players[id])
     .filter((player): player is Player => !!player);
+  if (listed.some((player) => isBuiltinPlayer(player))) return listed;
+  const own = props.players.find((player) => isBuiltinPlayer(player));
+  return own ? [...listed, own] : listed;
 });
 
 const order = computed(() => {

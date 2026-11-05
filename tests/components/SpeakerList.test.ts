@@ -174,6 +174,32 @@ describe("SpeakerList", () => {
     ]);
   });
 
+  it("shows this device even when the server leaves it out", () => {
+    const list = kitchenGroup();
+    list.sections = list.sections.filter((s) => s.key !== "other");
+    delete list.rooms.builtin;
+    holder.list.value = list;
+    const wrapper = mountList();
+
+    expect(wrapper.findAll("h3").map((h) => h.text())).toEqual([
+      "Main",
+      "Basement",
+      "this_device",
+    ]);
+    expect(
+      wrapper.findAll('[data-room-card][data-player-id="builtin"]'),
+    ).toHaveLength(1);
+  });
+
+  it("shows this device once when the server lists it", () => {
+    holder.list.value = kitchenGroup();
+    const wrapper = mountList();
+
+    expect(
+      wrapper.findAll('[data-room-card][data-player-id="builtin"]'),
+    ).toHaveLength(1);
+  });
+
   it("selects a group from any of its greyed speakers", async () => {
     holder.list.value = kitchenGroup();
     api.players.k.playback_state = PlaybackState.IDLE;
