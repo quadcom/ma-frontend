@@ -103,9 +103,8 @@ import {
   PopoverAnchor,
   PopoverContent,
 } from "@/components/ui/popover";
-import { useGroupColours } from "@/composables/useGroupColours";
 import { useOrderedPlayers } from "@/composables/useOrderedPlayers";
-import { useSpeakerLocations } from "@/composables/useSpeakerLocations";
+import { useSpeakerList } from "@/composables/useSpeakerList";
 import { useUserPreferences } from "@/composables/userPreferences";
 import { preventOnScreenKeyboardOnOpen } from "@/helpers/dialog_focus";
 import {
@@ -150,8 +149,11 @@ const editorFor = ref<string>();
 // room keeps its place when the list opens again.
 const topOrder = ref<string[]>([]);
 const { getPreference, setPreference } = useUserPreferences();
-const { refresh: refreshLocations } = useSpeakerLocations();
-const { groupColour, onHandover } = useGroupColours();
+const {
+  refresh: refreshSpeakerList,
+  groupColour,
+  onHandover,
+} = useSpeakerList();
 let stopFollowingHandovers: (() => void) | undefined;
 let menuTrigger: HTMLElement | null = null;
 let lastInteractionWasKeyboard = false;
@@ -211,7 +213,7 @@ watch(
         activeElement instanceof HTMLElement && activeElement !== document.body
           ? activeElement
           : null;
-      void refreshLocations();
+      void refreshSpeakerList();
       openActivePlayerGroupEditor();
       return;
     }
@@ -268,7 +270,7 @@ onMounted(() => {
     if (store.activePlayerId === oldLeader) activatePlayer(newLeader);
   });
   checkDefaultPlayer();
-  if (store.showPlayersMenu) void refreshLocations();
+  if (store.showPlayersMenu) void refreshSpeakerList();
 });
 
 onBeforeUnmount(() => {

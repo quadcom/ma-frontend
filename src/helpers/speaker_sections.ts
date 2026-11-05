@@ -1,31 +1,13 @@
-// Grouping and sorting rules for the speaker list and the group editor, kept
-// free of Vue so they can be tested without a UI. They follow the mobile app's
-// speaker list rule for rule, so both clients sort and group rooms the same way.
-import { getPlayerDisplayName } from "@/helpers/players";
+// Rules the speaker list and the group editor still apply in the app: which
+// rooms get a top row and in what order, and the group editor's buttons. The
+// sections themselves come finished from the server (see speaker_list.ts);
+// these helpers never sort or filter them. Kept free of Vue so they can be
+// tested without a UI.
 import {
   PlaybackState,
   type Player,
   PlayerType,
 } from "@/plugins/api/interfaces";
-
-export type PlayerGrouping = "floor" | "area" | "label" | "none";
-
-const GROUPINGS: readonly PlayerGrouping[] = ["floor", "area", "label", "none"];
-
-/** Where Home Assistant places a player, as `hass/player_locations` reports it. */
-export interface PlayerLocation {
-  area: string | null;
-  floor: string | null;
-  floor_level: number | null;
-  labels: string[];
-}
-
-export interface PlayerLocationsReply {
-  grouping?: string;
-  players: Record<string, PlayerLocation>;
-  /** Colour key per group leader, when the server keeps group colours. */
-  group_colours?: Record<string, string>;
-}
 
 /** One heading of the list. A null title is the heading-less block. */
 export interface SpeakerSection {
@@ -40,32 +22,16 @@ export type SectionGroupAction =
   | { kind: "remove"; ids: string[] }
   | { kind: "none" };
 
-const OTHER_KEY = "other";
-const ALL_KEY = "all";
-
 /**
- * The household grouping the server asks for. A reply without one (a server
- * that only reports locations) groups by floor; an unknown value shows one block.
+ * The list on a server that does not build it (no Home Assistant provider, or
+ * a stock server): one block of the players as the server holds them, with no
+ * headings and no sorting (Adrian, 2026-11-05).
  */
-export function parseGrouping(value: unknown): PlayerGrouping {
-  if (value === undefined || value === null) return "floor";
-  return GROUPINGS.find((grouping) => grouping === value) ?? "none";
+export function plainSection(players: Player[]): SpeakerSection[] {
+  return players.length === 0
+    ? []
+    : [{ key: "all", title: null, isOther: false, rooms: players }];
 }
-
-export function compareRooms(left: Player, right: Player): number {
-  return (
-    getPlayerDisplayName(left).localeCompare(
-      getPlayerDisplayName(right),
-      undefined,
-      { sensitivity: "base" },
-    ) || left.player_id.localeCompare(right.player_id)
-  );
-}
-
-const byName = (rooms: Player[]): Player[] => [...rooms].sort(compareRooms);
-
-const compareTitles = (left: string, right: string): number =>
-  left.localeCompare(right, undefined, { sensitivity: "base" });
 
 /** Maps each room bound into another room's group to that group's leader id. */
 export function boundLeaders(players: Player[]): Map<string, string> {
@@ -113,164 +79,6 @@ export function nextTopOrder(
   const wanted = activeId ? [...playingIds, activeId] : playingIds;
   const keep = previous.filter((id) => wanted.includes(id));
   return [...keep, ...new Set(wanted.filter((id) => !keep.includes(id)))];
-}
-
-/**
- * The rooms that make up a permanent group player. A permanent group shows as
- * the group only; its rooms are never listed on their own (Adrian, 2026-11-05).
- * A sync group lists its rooms as members, not as static members.
- */
-export function permanentGroupRooms(players: Player[]): Set<string> {
-  return new Set(
-    players
-      .filter((player) => player.type === PlayerType.GROUP)
-      .flatMap((player) => [
-        ...player.static_group_members,
-        ...player.group_members,
-      ])
-      .filter(
-        (id) =>
-          !players.some(
-            (p) => p.player_id === id && p.type === PlayerType.GROUP,
-          ),
-      ),
-  );
-}
-
-/** The rooms bound to the leader, sorted by name. */
-export function membersOf(
-  leaderId: string,
-  players: Player[],
-  bound: Map<string, string>,
-): Player[] {
-  return byName(
-    players.filter((player) => bound.get(player.player_id) === leaderId),
-  );
-}
-
-/** The name of the room this one is bound into, or undefined when it is free. */
-export function groupLeaderName(
-  room: Player,
-  players: Player[],
-  bound: Map<string, string>,
-): string | undefined {
-  const leaderId = bound.get(room.player_id);
-  const leader = players.find((player) => player.player_id === leaderId);
-  return leader ? getPlayerDisplayName(leader) : undefined;
-}
-
-/**
- * Splits rooms into headings for the chosen grouping. With no locations, or
- * grouping "none", there are no headings, just one block.
- */
-export function speakerSections(
-  rooms: Player[],
-  locations: Record<string, PlayerLocation> | undefined,
-  grouping: PlayerGrouping,
-): SpeakerSection[] {
-  if (rooms.length === 0) return [];
-  if (!locations || grouping === "none") {
-    return [
-      { key: ALL_KEY, title: null, isOther: false, rooms: byName(rooms) },
-    ];
-  }
-  const sections =
-    grouping === "floor"
-      ? floorSections(rooms, locations)
-      : grouping === "area"
-        ? areaSections(rooms, locations)
-        : labelSections(rooms, locations);
-  const placed = new Set(
-    sections.flatMap((section) => section.rooms.map((room) => room.player_id)),
-  );
-  const other = rooms.filter((room) => !placed.has(room.player_id));
-  if (other.length === 0) return sections;
-  return [
-    ...sections,
-    { key: OTHER_KEY, title: null, isOther: true, rooms: byName(other) },
-  ];
-}
-
-/**
- * Highest floor level first; floors on the same level put the one with more
- * rooms first, then the name. A floor without a level comes after every floor
- * that has one. A room with no area or no floor goes under "Other".
- */
-function floorSections(
-  rooms: Player[],
-  locations: Record<string, PlayerLocation>,
-): SpeakerSection[] {
-  const floors = new Map<string, { level: number | null; rooms: Player[] }>();
-  for (const room of rooms) {
-    const location = locations[room.player_id];
-    if (!location?.area || !location.floor) continue;
-    const floor = floors.get(location.floor) ?? { level: null, rooms: [] };
-    floor.level ??= location.floor_level;
-    floor.rooms.push(room);
-    floors.set(location.floor, floor);
-  }
-  return [...floors.entries()]
-    .sort(([leftName, left], [rightName, right]) => {
-      if (left.level !== right.level) {
-        if (left.level === null) return 1;
-        if (right.level === null) return -1;
-        return right.level - left.level;
-      }
-      return (
-        right.rooms.length - left.rooms.length ||
-        compareTitles(leftName, rightName)
-      );
-    })
-    .map(([name, floor]) => ({
-      key: `floor:${name}`,
-      title: name,
-      isOther: false,
-      rooms: byName(floor.rooms),
-    }));
-}
-
-/** Areas A–Z; a room with no area goes under "Other". */
-function areaSections(
-  rooms: Player[],
-  locations: Record<string, PlayerLocation>,
-): SpeakerSection[] {
-  return namedSections(rooms, "area", (room) => {
-    const area = locations[room.player_id]?.area;
-    return area ? [area] : [];
-  });
-}
-
-/** Labels A–Z; a room is listed under each of its labels, or "Other" if none. */
-function labelSections(
-  rooms: Player[],
-  locations: Record<string, PlayerLocation>,
-): SpeakerSection[] {
-  return namedSections(
-    rooms,
-    "label",
-    (room) => locations[room.player_id]?.labels ?? [],
-  );
-}
-
-function namedSections(
-  rooms: Player[],
-  prefix: string,
-  namesOf: (room: Player) => string[],
-): SpeakerSection[] {
-  const sections = new Map<string, Player[]>();
-  for (const room of rooms) {
-    for (const name of new Set(namesOf(room))) {
-      sections.set(name, [...(sections.get(name) ?? []), room]);
-    }
-  }
-  return [...sections.entries()]
-    .sort(([left], [right]) => compareTitles(left, right))
-    .map(([name, list]) => ({
-      key: `${prefix}:${name}`,
-      title: name,
-      isOther: false,
-      rooms: byName(list),
-    }));
 }
 
 /** A permanent member of the leader's group, which can never be taken out. */

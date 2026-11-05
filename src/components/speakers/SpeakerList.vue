@@ -69,21 +69,23 @@ import { Separator } from "@/components/ui/separator";
 import PlayingRoomRow from "@/components/speakers/PlayingRoomRow.vue";
 import RoomCard from "@/components/speakers/RoomCard.vue";
 import RoomSections from "@/components/speakers/RoomSections.vue";
-import { useGroupColours } from "@/composables/useGroupColours";
-import { useSpeakerLocations } from "@/composables/useSpeakerLocations";
+import { useSpeakerList } from "@/composables/useSpeakerList";
 import {
   getPlayerDisplayName,
   isBuiltinPlayer,
   isPlayerUnavailable,
 } from "@/helpers/players";
 import {
+  groupLeaderOf,
+  groupSpeakers,
+  toSections,
+} from "@/helpers/speaker_list";
+import {
   boundLeaders,
-  membersOf,
   nextTopOrder,
-  permanentGroupRooms,
+  plainSection,
   playingRoomIds,
   type SpeakerSection,
-  speakerSections,
 } from "@/helpers/speaker_sections";
 import { api } from "@/plugins/api";
 import { type Player, PlayerType } from "@/plugins/api/interfaces";
@@ -93,9 +95,10 @@ import { computed, watch } from "vue";
 /**
  * The speaker list: a row per playing room or group (plus the active one) on
  * top, a group's speakers as cards under its row, then every room as a square
- * card under the household's headings, and this device last. A group's
+ * card under the headings the server sends, and this device last. A group's
  * speakers stay greyed under their headings, marked with the group's colour;
- * a click on one selects its group.
+ * a click on one selects its group. On a server that does not build the list,
+ * the rooms are one plain block.
  */
 const props = defineProps<{
   players: Player[];
@@ -109,15 +112,17 @@ const emit = defineEmits<{
   "update:topOrder": [order: string[]];
 }>();
 
-const { locations, grouping } = useSpeakerLocations();
-const { groupColour } = useGroupColours();
+const { list, groupColour } = useSpeakerList();
 
 const bound = computed(() => boundLeaders(Object.values(api.players)));
 
-// A permanent group player shows as the group only, never its rooms.
+// The rooms the server lists, or every visible player when it lists none.
 const rooms = computed(() => {
-  const permanent = permanentGroupRooms(Object.values(api.players));
-  return props.players.filter((p) => !permanent.has(p.player_id));
+  const server = list.value;
+  if (!server) return props.players;
+  return Object.keys(server.rooms)
+    .map((id) => api.players[id])
+    .filter((player): player is Player => !!player);
 });
 
 const order = computed(() => {
@@ -139,16 +144,16 @@ watch(
 
 const topRows = computed(() =>
   order.value.flatMap((id) => {
-    const player = rooms.value.find((p) => p.player_id === id);
+    const player = api.players[id];
     if (!player) return [];
     const group = groupColour(id);
-    const members = membersOf(id, rooms.value, bound.value);
-    // a group player is not a room of its own, so only its members are cards
-    const speakers = !group
-      ? []
-      : player.type === PlayerType.GROUP
-        ? members
-        : [player, ...members];
+    const serverGroup = list.value?.groups.find((g) => g.leader === id);
+    const speakers =
+      group && serverGroup
+        ? groupSpeakers(serverGroup)
+            .map((member) => api.players[member])
+            .filter((member): member is Player => !!member)
+        : [];
     return [{ player, group, speakers }];
   }),
 );
@@ -158,7 +163,7 @@ const loneTopIds = computed(
   () =>
     new Set(
       topRows.value
-        .filter((row) => !row.group)
+        .filter((row) => row.speakers.length === 0)
         .map((row) => row.player.player_id),
     ),
 );
@@ -169,18 +174,15 @@ const builtinRoom = computed(() =>
   ),
 );
 
-const sections = computed(() =>
-  speakerSections(
-    rooms.value.filter(
-      (p) =>
-        !loneTopIds.value.has(p.player_id) &&
-        p !== builtinRoom.value &&
-        p.type !== PlayerType.GROUP,
-    ),
-    locations.value,
-    grouping.value,
-  ),
-);
+// The server's sections as sent; the app only lifts out the rooms it shows
+// elsewhere (a lone top row, this device).
+const sections = computed(() => {
+  const skip = new Set(loneTopIds.value);
+  const builtin = rooms.value.find((p) => isBuiltinPlayer(p));
+  if (builtin) skip.add(builtin.player_id);
+  if (list.value) return toSections(list.value.sections, api.players, skip);
+  return plainSection(rooms.value.filter((p) => !skip.has(p.player_id)));
+});
 
 const builtinSections = computed<SpeakerSection[]>(() =>
   builtinRoom.value
@@ -197,20 +199,22 @@ const builtinSections = computed<SpeakerSection[]>(() =>
 
 /** The leader of the group this room is in (itself when it leads one). */
 function leaderOf(room: Player): string | undefined {
-  const leader = bound.value.get(room.player_id);
-  if (leader) return leader;
-  return groupColour(room.player_id) ? room.player_id : undefined;
+  if (list.value) return groupLeaderOf(list.value, room.player_id);
+  return bound.value.get(room.player_id);
 }
 
 function cardProps(room: Player) {
   const leader = leaderOf(room);
-  const unavailable = isPlayerUnavailable(room);
+  const unavailable =
+    isPlayerUnavailable(room) ||
+    list.value?.rooms[room.player_id]?.available === false;
   const group = groupColour(leader);
   const leaderPlayer = leader ? api.players[leader] : undefined;
   return {
     player: room,
     group,
-    // a permanent group player has no colour: its own name says where it is
+    // without a colour (a permanent group, or the plain list) the group's name
+    // says where the room is
     tag: room.needs_setup
       ? $t("settings.setup_required")
       : unavailable

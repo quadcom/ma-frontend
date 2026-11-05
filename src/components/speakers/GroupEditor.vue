@@ -30,18 +30,17 @@
 import { Button } from "@/components/ui/button";
 import RoomCard from "@/components/speakers/RoomCard.vue";
 import RoomSections from "@/components/speakers/RoomSections.vue";
-import { useGroupColours } from "@/composables/useGroupColours";
-import { useSpeakerLocations } from "@/composables/useSpeakerLocations";
+import { useSpeakerList } from "@/composables/useSpeakerList";
 import { canBeGroupMember, groupMemberPickerVisible } from "@/helpers/players";
+import { groupLeaderOf, toSections } from "@/helpers/speaker_list";
 import {
   boundLeaders,
   canLeaveOwnGroup,
   isLockedMember,
-  permanentGroupRooms,
+  plainSection,
   type SectionGroupAction,
   sectionGroupAction,
   type SpeakerSection,
-  speakerSections,
 } from "@/helpers/speaker_sections";
 import { api } from "@/plugins/api";
 import {
@@ -63,8 +62,7 @@ const props = defineProps<{
   leader: Player;
 }>();
 
-const { locations, grouping } = useSpeakerLocations();
-const { groupColour } = useGroupColours();
+const { list, groupColour } = useSpeakerList();
 
 const allPlayers = computed(() => Object.values(api.players));
 const bound = computed(() => boundLeaders(allPlayers.value));
@@ -74,19 +72,23 @@ const ownColour = computed(() => groupColour(leaderId.value));
 const isMember = (room: Player) =>
   bound.value.get(room.player_id) === leaderId.value;
 
-const permanentRooms = computed(() => permanentGroupRooms(allPlayers.value));
-
-// The rooms the leader can group with, and the leader itself; an unreachable
-// room is only offered while it is in this group, so it can be taken out. The
-// rooms of a permanent group player never show on their own.
-const offered = computed(() =>
-  allPlayers.value.filter((player) => {
-    if (permanentRooms.value.has(player.player_id)) return false;
-    if (player.player_id === leaderId.value) {
-      return player.type !== PlayerType.GROUP;
-    }
-    if (isMember(player)) return true;
-    return (
+// The rooms the leader can group with, as the server works them out, plus the
+// leader itself and the rooms already in its group (so they can be taken out).
+const offeredIds = computed(() => {
+  const server = list.value;
+  const ids = new Set<string>();
+  if (props.leader.type !== PlayerType.GROUP) ids.add(leaderId.value);
+  for (const player of allPlayers.value) {
+    if (isMember(player)) ids.add(player.player_id);
+  }
+  if (server) {
+    for (const id of server.rooms[leaderId.value]?.group_with ?? [])
+      ids.add(id);
+    return ids;
+  }
+  // a server that does not build the list: the stock rules
+  for (const player of allPlayers.value) {
+    if (
       props.leader.can_group_with.includes(player.player_id) &&
       player.enabled &&
       player.available &&
@@ -94,13 +96,24 @@ const offered = computed(() =>
       canBeGroupMember(player) &&
       player.type !== PlayerType.GROUP &&
       (!player.active_group || player.active_group === leaderId.value)
-    );
-  }),
-);
+    ) {
+      ids.add(player.player_id);
+    }
+  }
+  return ids;
+});
 
-const sections = computed(() =>
-  speakerSections(offered.value, locations.value, grouping.value),
-);
+// The server's sections narrowed to those rooms, or one plain block.
+const sections = computed(() => {
+  const offered = offeredIds.value;
+  if (list.value) {
+    const skip = new Set(
+      Object.keys(api.players).filter((id) => !offered.has(id)),
+    );
+    return toSections(list.value.sections, api.players, skip);
+  }
+  return plainSection(allPlayers.value.filter((p) => offered.has(p.player_id)));
+});
 
 function cardProps(room: Player) {
   if (room.player_id === leaderId.value) {
@@ -119,7 +132,9 @@ function cardProps(room: Player) {
       inert: isLockedMember(room, props.leader),
     };
   }
-  const otherLeader = bound.value.get(room.player_id) ?? room.player_id;
+  const otherLeader = list.value
+    ? groupLeaderOf(list.value, room.player_id)
+    : bound.value.get(room.player_id);
   return {
     player: room,
     group: groupColour(otherLeader),

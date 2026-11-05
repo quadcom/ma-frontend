@@ -6,7 +6,7 @@
     data-room-card
     :data-player-id="player.player_id"
     :data-group="group?.name"
-    class="bg-muted relative flex aspect-square w-full flex-col items-center overflow-hidden rounded-xl border p-1 text-center transition-[filter,border-color] duration-200"
+    class="bg-muted relative flex aspect-square w-full flex-col items-center overflow-hidden rounded-[8px] border p-1 text-center transition-[filter,border-color] duration-200 max-[500px]:rounded-[4px]"
     :class="[
       dimmed ? 'border-border/50' : 'border-border',
       inert
@@ -49,13 +49,16 @@
 
 <script setup lang="ts">
 import PlayerIcon from "@/components/PlayerIcon.vue";
-import type { GroupColour } from "@/composables/useGroupColours";
+import type { GroupColour } from "@/composables/useSpeakerList";
 import { getPlayerDisplayName } from "@/helpers/players";
 import type { Player } from "@/plugins/api/interfaces";
 import { computed } from "vue";
 
 // A word longer than this does not fit the card at the normal size.
 const LONG_WORD = 8;
+
+// Corners: 8px, 4px below 500px, the same as the Discover page's media cards
+// (`--ed-card-pad` in EditorialMediaCard.vue); change both together.
 
 /**
  * A square room card. `group` marks a room that is in a group: a line in the

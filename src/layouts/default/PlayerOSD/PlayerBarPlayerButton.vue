@@ -39,7 +39,7 @@
 <script setup lang="ts">
 import PlayerIcon from "@/components/PlayerIcon.vue";
 import { Button } from "@/components/ui/button";
-import { useGroupColours } from "@/composables/useGroupColours";
+import { useSpeakerList } from "@/composables/useSpeakerList";
 import { usePopoutTriggerHover } from "@/composables/usePopoutTriggerHover";
 import { getPlayerDisplayName } from "@/helpers/players";
 import { PlayerType } from "@/plugins/api/interfaces";
@@ -50,7 +50,7 @@ import { computed } from "vue";
 const { suppressHover, onPointerEnter } = usePopoutTriggerHover(
   () => store.showPlayersMenu,
 );
-const { groupColour } = useGroupColours();
+const { groupColour } = useSpeakerList();
 // a group of rooms goes by its colour, as in the speaker list
 const playerName = computed(() => {
   const player = store.activePlayer;

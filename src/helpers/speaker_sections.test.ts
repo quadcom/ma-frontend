@@ -4,44 +4,14 @@ import { player } from "../../tests/fixtures/player";
 import {
   boundLeaders,
   canLeaveOwnGroup,
-  membersOf,
   nextTopOrder,
-  parseGrouping,
-  permanentGroupRooms,
+  plainSection,
   playingRoomIds,
-  type PlayerLocation,
   sectionGroupAction,
-  speakerSections,
 } from "./speaker_sections";
 
 const room = (id: string, name: string, extra = {}) =>
   player({ player_id: id, name, ...extra });
-
-const at = (
-  area: string | null,
-  floor: string | null,
-  floor_level: number | null,
-  labels: string[] = [],
-): PlayerLocation => ({ area, floor, floor_level, labels });
-
-const ids = (sections: ReturnType<typeof speakerSections>) =>
-  sections.map((section) => [
-    section.isOther ? "Other" : section.title,
-    section.rooms.map((r) => r.player_id),
-  ]);
-
-describe("parseGrouping", () => {
-  it("groups by floor when the server sends no choice", () => {
-    expect(parseGrouping(undefined)).toBe("floor");
-    expect(parseGrouping(null)).toBe("floor");
-  });
-  it("follows a known choice", () => {
-    expect(parseGrouping("label")).toBe("label");
-  });
-  it("shows one block for an unknown choice", () => {
-    expect(parseGrouping("zones")).toBe("none");
-  });
-});
 
 describe("boundLeaders", () => {
   it("maps members to their leader, never the leader to itself", () => {
@@ -87,92 +57,6 @@ describe("top rows", () => {
   });
   it("drops a room once it stops playing and is not active", () => {
     expect(nextTopOrder(["k", "p"], ["p"], "p")).toEqual(["p"]);
-  });
-  it("sorts a group's members by name", () => {
-    const players = [
-      room("k", "Kitchen", { group_members: ["k", "z", "a"] }),
-      room("z", "Zen"),
-      room("a", "Attic"),
-    ];
-    expect(
-      membersOf("k", players, boundLeaders(players)).map((p) => p.player_id),
-    ).toEqual(["a", "z"]);
-  });
-});
-
-describe("speakerSections", () => {
-  const rooms = [
-    room("k", "Kitchen"),
-    room("g", "Garage bay"),
-    room("b", "Bedroom"),
-    room("o", "Office"),
-    room("x", "Screen"),
-    room("n", "No floor"),
-  ];
-  const locations = {
-    k: at("Kitchen", "Main", 1, ["Party", "Downstairs"]),
-    o: at("Office", "Main", 1, ["Party"]),
-    g: at("Garage", "Garage", 1),
-    b: at("Bedroom", "Basement", -1),
-    n: at("Hall", null, null),
-  };
-
-  it("sorts floors by level, then more rooms, then name; Other last", () => {
-    expect(ids(speakerSections(rooms, locations, "floor"))).toEqual([
-      ["Main", ["k", "o"]],
-      ["Garage", ["g"]],
-      ["Basement", ["b"]],
-      ["Other", ["n", "x"]],
-    ]);
-  });
-
-  it("puts a floor without a level after floors that have one", () => {
-    const sections = speakerSections(
-      [room("a", "A"), room("b", "B")],
-      { a: at("A", "Loft", null), b: at("B", "Deep", -5) },
-      "floor",
-    );
-    expect(ids(sections)).toEqual([
-      ["Deep", ["b"]],
-      ["Loft", ["a"]],
-    ]);
-  });
-
-  it("puts a room with a floor but no area under Other", () => {
-    const sections = speakerSections(
-      [room("a", "A")],
-      { a: at(null, "Main", 1) },
-      "floor",
-    );
-    expect(ids(sections)).toEqual([["Other", ["a"]]]);
-  });
-
-  it("sorts areas A to Z", () => {
-    expect(ids(speakerSections(rooms, locations, "area"))).toEqual([
-      ["Bedroom", ["b"]],
-      ["Garage", ["g"]],
-      ["Hall", ["n"]],
-      ["Kitchen", ["k"]],
-      ["Office", ["o"]],
-      ["Other", ["x"]],
-    ]);
-  });
-
-  it("repeats a room under each of its labels", () => {
-    expect(ids(speakerSections(rooms, locations, "label"))).toEqual([
-      ["Downstairs", ["k"]],
-      ["Party", ["k", "o"]],
-      ["Other", ["b", "g", "n", "x"]],
-    ]);
-  });
-
-  it("shows one block for none, or without locations", () => {
-    expect(ids(speakerSections(rooms, locations, "none"))).toEqual([
-      [null, ["b", "g", "k", "n", "o", "x"]],
-    ]);
-    expect(ids(speakerSections(rooms, undefined, "floor"))).toEqual([
-      [null, ["b", "g", "k", "n", "o", "x"]],
-    ]);
   });
 });
 
@@ -241,17 +125,14 @@ describe("group editor", () => {
   });
 });
 
-describe("permanentGroupRooms", () => {
-  it("lists the rooms of permanent group players only", () => {
-    const players = [
-      room("g", "Master Bedroom", {
-        type: PlayerType.GROUP,
-        static_group_members: ["mb1"],
-        // a sync group holds its rooms as members
-        group_members: ["mb2"],
-      }),
-      room("k", "Kitchen", { group_members: ["k", "d"] }),
-    ];
-    expect([...permanentGroupRooms(players)]).toEqual(["mb1", "mb2"]);
+describe("plainSection", () => {
+  it("is one block in the order given, with no heading", () => {
+    const players = [room("z", "Zen"), room("a", "Attic")];
+    expect(plainSection(players)).toEqual([
+      { key: "all", title: null, isOther: false, rooms: players },
+    ]);
+  });
+  it("is empty without players", () => {
+    expect(plainSection([])).toEqual([]);
   });
 });

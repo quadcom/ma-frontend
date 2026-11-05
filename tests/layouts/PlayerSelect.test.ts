@@ -128,15 +128,12 @@ vi.mock("@/composables/userPreferences", async () => {
   };
 });
 
-vi.mock("@/composables/useGroupColours", () => ({
-  useGroupColours: () => ({
+vi.mock("@/composables/useSpeakerList", () => ({
+  useSpeakerList: () => ({
+    refresh: refreshLocations,
     groupColour: () => undefined,
     onHandover: () => () => {},
   }),
-}));
-
-vi.mock("@/composables/useSpeakerLocations", () => ({
-  useSpeakerLocations: () => ({ refresh: refreshLocations }),
 }));
 
 vi.mock("@/helpers/players", () => ({

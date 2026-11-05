@@ -2,12 +2,12 @@
   <div
     data-playing-room-row
     :data-player-id="player.player_id"
-    class="bg-muted relative min-h-[84px] overflow-hidden rounded-xl border"
+    class="bg-muted relative min-h-[84px] overflow-hidden rounded-[8px] border max-[500px]:rounded-[4px]"
     :class="active ? 'border-primary' : 'border-transparent'"
   >
     <button
       type="button"
-      class="focus-visible:ring-ring absolute inset-0 z-[2] rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-inset"
+      class="focus-visible:ring-ring absolute inset-0 z-[2] rounded-[8px] outline-none focus-visible:ring-2 focus-visible:ring-inset max-[500px]:rounded-[4px]"
       :aria-label="`${$t('tooltip.select_player')}: ${title}`"
       :aria-current="active ? 'true' : undefined"
       @click="emit('select', player)"
@@ -40,7 +40,8 @@
       :style="{ backgroundColor: group.hex }"
     ></span>
     <div
-      class="pointer-events-none relative z-[1] flex flex-col py-2.5 pr-[52px] pb-3 pl-4"
+      class="pointer-events-none relative z-[1] flex flex-col py-2.5 pb-3 pl-4"
+      :class="media && canGroup ? 'pr-[92px]' : 'pr-[52px]'"
     >
       <p
         class="text-base leading-[22px]"
@@ -74,16 +75,34 @@
     >
       {{ $t("player_select.active") }}
     </span>
-    <Button
-      v-if="canGroup"
-      variant="ghost"
-      size="icon"
-      class="absolute top-1/2 right-1.5 z-[3] size-9 -translate-y-1/2"
-      :aria-label="$t('player_select.edit_group', { name: title })"
-      @click="emit('openGroupEditor', player)"
+    <div
+      class="absolute top-1/2 right-1.5 z-[3] flex -translate-y-1/2 items-center gap-1"
     >
-      <Link class="size-6" />
-    </Button>
+      <Button
+        v-if="media"
+        variant="ghost"
+        size="icon"
+        class="size-9 rounded-full"
+        :disabled="playDisabled"
+        :aria-label="playLabel"
+        @click="playPause"
+      >
+        <Spinner v-if="playLoading" class="size-5" />
+        <Square v-else-if="isPlaying && showStop" class="size-5 fill-current" />
+        <Pause v-else-if="isPlaying" class="size-6 fill-current" />
+        <Play v-else class="size-6 fill-current" />
+      </Button>
+      <Button
+        v-if="canGroup"
+        variant="ghost"
+        size="icon"
+        class="size-9"
+        :aria-label="$t('player_select.edit_group', { name: title })"
+        @click="emit('openGroupEditor', player)"
+      >
+        <Link class="size-6" />
+      </Button>
+    </div>
     <div
       class="bg-primary/20 pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[3px]"
     >
@@ -98,7 +117,9 @@
 <script setup lang="ts">
 import PlayerIcon from "@/components/PlayerIcon.vue";
 import { Button } from "@/components/ui/button";
-import type { GroupColour } from "@/composables/useGroupColours";
+import { Spinner } from "@/components/ui/spinner";
+import { usePlayPauseCommand } from "@/composables/usePlayPauseCommand";
+import type { GroupColour } from "@/composables/useSpeakerList";
 import { resolveActiveElapsedTime } from "@/helpers/activeElapsedTime";
 import { canEditPlayerGroup, getPlayerDisplayName } from "@/helpers/players";
 import {
@@ -114,7 +135,7 @@ import {
   PlayerType,
 } from "@/plugins/api/interfaces";
 import { $t } from "@/plugins/i18n";
-import { AudioLines, Link } from "@lucide/vue";
+import { AudioLines, Link, Pause, Play, Square } from "@lucide/vue";
 import { useIntervalFn } from "@vueuse/core";
 import { computed, ref, watch } from "vue";
 
@@ -157,6 +178,22 @@ const isPlaying = computed(
   () => props.player.playback_state === PlaybackState.PLAYING,
 );
 const canGroup = computed(() => canEditPlayerGroup(props.player));
+
+// The same command as the player bar's play button and the space bar.
+const {
+  showStop,
+  isLoading: playLoading,
+  isDisabled: playDisabled,
+  playPause,
+} = usePlayPauseCommand(
+  computed(() => props.player),
+  computed(() => resolvePlayerQueue(props.player)),
+);
+// worded as the player bar's play button words it
+const playLabel = computed(() => {
+  if (isPlaying.value && showStop.value) return $t("stop_playback");
+  return isPlaying.value ? $t("pause") : $t("play");
+});
 
 // Fan art when the item has it, else the cover.
 const artUrl = computed(() => {
