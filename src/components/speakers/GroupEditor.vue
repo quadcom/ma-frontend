@@ -32,11 +32,7 @@ import RoomCard from "@/components/speakers/RoomCard.vue";
 import RoomSections from "@/components/speakers/RoomSections.vue";
 import { useGroupColours } from "@/composables/useGroupColours";
 import { useSpeakerLocations } from "@/composables/useSpeakerLocations";
-import {
-  canBeGroupMember,
-  getPlayerDisplayName,
-  groupMemberPickerVisible,
-} from "@/helpers/players";
+import { canBeGroupMember, groupMemberPickerVisible } from "@/helpers/players";
 import {
   boundLeaders,
   canLeaveOwnGroup,
@@ -115,23 +111,17 @@ function cardProps(room: Player) {
     return {
       player: room,
       group: ownColour.value,
-      // a permanent group player has no colour, so its name marks its rooms
-      tag: ownColour.value ? undefined : getPlayerDisplayName(props.leader),
       inert: isLockedMember(room, props.leader),
     };
   }
-  const otherLeaderId = bound.value.get(room.player_id);
-  const otherLeader = otherLeaderId ? api.players[otherLeaderId] : undefined;
-  const otherColour = groupColour(otherLeaderId ?? room.player_id);
+  const otherLeader = bound.value.get(room.player_id) ?? room.player_id;
   return {
     player: room,
-    group: otherColour,
+    group: groupColour(otherLeader),
     tag:
-      !otherColour && otherLeader
-        ? getPlayerDisplayName(otherLeader)
-        : room.playback_state === PlaybackState.PLAYING
-          ? $t("player_select.playing")
-          : undefined,
+      room.playback_state === PlaybackState.PLAYING
+        ? $t("player_select.playing")
+        : undefined,
   };
 }
 
