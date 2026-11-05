@@ -66,13 +66,7 @@
           <ArrowLeft class="size-5" />
         </Button>
         <h2 class="min-w-0 truncate text-lg font-semibold">
-          {{
-            editorLeader
-              ? $t("player_select.group_with", {
-                  name: getPlayerDisplayName(editorLeader),
-                })
-              : $t("players")
-          }}
+          {{ editorLeader ? editorTitle : $t("players") }}
         </h2>
         <p class="sr-only">{{ $t("tooltip.select_player") }}</p>
       </div>
@@ -109,6 +103,7 @@ import {
   PopoverAnchor,
   PopoverContent,
 } from "@/components/ui/popover";
+import { useGroupColours } from "@/composables/useGroupColours";
 import { useOrderedPlayers } from "@/composables/useOrderedPlayers";
 import { useSpeakerLocations } from "@/composables/useSpeakerLocations";
 import { useUserPreferences } from "@/composables/userPreferences";
@@ -131,6 +126,7 @@ import { api } from "@/plugins/api";
 import { PlayerType, Scope, type Player } from "@/plugins/api/interfaces";
 import { authManager } from "@/plugins/auth";
 import { eventbus } from "@/plugins/eventbus";
+import { $t } from "@/plugins/i18n";
 import { store } from "@/plugins/store";
 import { webPlayer } from "@/plugins/web_player";
 import { ArrowLeft } from "@lucide/vue";
@@ -155,6 +151,8 @@ const editorFor = ref<string>();
 const topOrder = ref<string[]>([]);
 const { getPreference, setPreference } = useUserPreferences();
 const { refresh: refreshLocations } = useSpeakerLocations();
+const { groupColour, onHandover } = useGroupColours();
+let stopFollowingHandovers: (() => void) | undefined;
 let menuTrigger: HTMLElement | null = null;
 let lastInteractionWasKeyboard = false;
 let restoreFocusOnClose = false;
@@ -181,6 +179,17 @@ const visiblePlayers = computed(() =>
 const editorLeader = computed(() =>
   editorFor.value ? api.players[editorFor.value] : undefined,
 );
+
+// A group of rooms is named by its colour; a group player keeps its own name;
+// a room on its own is about to become one.
+const editorTitle = computed(() => {
+  const leader = editorLeader.value;
+  if (!leader) return "";
+  const colour = groupColour(leader.player_id);
+  if (colour && leader.type !== PlayerType.GROUP) return colour.name;
+  if (leader.type === PlayerType.GROUP) return getPlayerDisplayName(leader);
+  return $t("player_select.group_with", { name: getPlayerDisplayName(leader) });
+});
 
 // the fullscreen player covers the player bar, so the panel pops out of the
 // player select button in there and stays on top of it
@@ -252,6 +261,12 @@ watch([() => webPlayer.player_id, () => store.companionPlayerId], () => {
 onMounted(() => {
   document.addEventListener("keydown", markKeyboardInteraction, true);
   document.addEventListener("pointerdown", markPointerInteraction, true);
+  // when a leader leaves its group, the group plays on under another room:
+  // the editor and the player bar follow the group, not the room that left
+  stopFollowingHandovers = onHandover((oldLeader, newLeader) => {
+    if (editorFor.value === oldLeader) editorFor.value = newLeader;
+    if (store.activePlayerId === oldLeader) activatePlayer(newLeader);
+  });
   checkDefaultPlayer();
   if (store.showPlayersMenu) void refreshLocations();
 });
@@ -259,6 +274,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener("keydown", markKeyboardInteraction, true);
   document.removeEventListener("pointerdown", markPointerInteraction, true);
+  stopFollowingHandovers?.();
 });
 
 function setMenuOpen(isOpen: boolean) {

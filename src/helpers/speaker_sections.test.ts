@@ -4,7 +4,6 @@ import { player } from "../../tests/fixtures/player";
 import {
   boundLeaders,
   canLeaveOwnGroup,
-  editorTag,
   membersOf,
   nextTopOrder,
   parseGrouping,
@@ -195,21 +194,6 @@ describe("group editor", () => {
     title: isOther ? null : "Main",
     isOther,
     rooms: players.filter((p) => list.includes(p.player_id)),
-  });
-
-  it("tags each card with what it is doing", () => {
-    const tag = (id: string) =>
-      editorTag(
-        players.find((p) => p.player_id === id)!,
-        leader,
-        players,
-        bound,
-      );
-    expect(tag("k")).toEqual({ kind: "this_room" });
-    expect(tag("d")).toEqual({ kind: "named", name: "Kitchen" });
-    expect(tag("p")).toEqual({ kind: "playing" });
-    expect(tag("l")).toEqual({ kind: "named", name: "Patio" });
-    expect(tag("i")).toEqual({ kind: "none" });
   });
 
   it("adds the rooms not yet in, never an unavailable one", () => {

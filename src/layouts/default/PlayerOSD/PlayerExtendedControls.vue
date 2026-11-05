@@ -4,14 +4,12 @@
       v-if="volume?.isVisible && store.activePlayer"
       :player="store.activePlayer"
     />
-    <PlayerBarGroupControl v-if="player?.isVisible" />
     <PlayerBarPlayerButton v-if="player?.isVisible" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { store } from "@/plugins/store";
-import PlayerBarGroupControl from "./PlayerBarGroupControl.vue";
 import PlayerBarPlayerButton from "./PlayerBarPlayerButton.vue";
 import PlayerBarVolumeControl from "./PlayerBarVolumeControl.vue";
 

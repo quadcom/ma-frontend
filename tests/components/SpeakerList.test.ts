@@ -43,6 +43,7 @@ vi.mock("@/composables/useSpeakerLocations", async () => {
       return {
         locations: locationsRef,
         grouping: groupingRef,
+        serverGroupColours: ref(undefined),
         refresh: vi.fn(),
       };
     },
@@ -98,7 +99,7 @@ beforeEach(() => {
 });
 
 describe("SpeakerList", () => {
-  it("gives a playing room a row with its group members under it", () => {
+  it("gives a playing group a row named by its colour, every speaker under it", () => {
     setPlayers(
       player({
         player_id: "k",
@@ -116,14 +117,18 @@ describe("SpeakerList", () => {
       "k",
       "o",
     ]);
+    expect(rows[0].text()).toMatch(/player_select\.colours\.\w+/);
+    expect(rows[0].find("[data-group-corner]").exists()).toBe(true);
     expect(rows[1].text()).toContain("player_select.active");
-    // Dining sits under Kitchen's row and greyed in the room cards below
-    expect(
-      wrapper.findAll('[data-room-card][data-player-id="d"]'),
-    ).toHaveLength(2);
+    // both speakers sit under the row, and greyed under their heading below
+    for (const id of ["k", "d"]) {
+      const cards = wrapper.findAll(`[data-room-card][data-player-id="${id}"]`);
+      expect(cards).toHaveLength(2);
+      expect(cards[1].attributes("data-group")).toMatch(/colours/);
+    }
   });
 
-  it("ignores clicks on a grouped room and selects a free one", async () => {
+  it("selects a group from any of its greyed speakers", async () => {
     setPlayers(
       player({ player_id: "k", name: "Kitchen", group_members: ["k", "d"] }),
       player({ player_id: "d", name: "Dining", synced_to: "k" }),
@@ -131,11 +136,13 @@ describe("SpeakerList", () => {
     );
     const wrapper = mountList();
 
-    expect(card(wrapper, "d").element.tagName).toBe("DIV");
-    expect(card(wrapper, "d").text()).toContain("Kitchen");
+    await card(wrapper, "d").trigger("click");
     await card(wrapper, "g").trigger("click");
 
-    expect(wrapper.emitted("select")).toEqual([[api.players.g]]);
+    expect(wrapper.emitted("select")).toEqual([
+      [api.players.k],
+      [api.players.g],
+    ]);
   });
 
   it("puts rooms under floor headings, highest first, this device last", () => {
@@ -176,7 +183,7 @@ describe("SpeakerList", () => {
     const wrapper = mountList("k");
 
     await wrapper
-      .get('[aria-label="player_select.group_with:Kitchen"]')
+      .get('[aria-label="player_select.edit_group:Kitchen"]')
       .trigger("click");
 
     expect(wrapper.emitted("openGroupEditor")).toEqual([[api.players.k]]);
@@ -245,15 +252,12 @@ describe("GroupEditor", () => {
     );
   });
 
-  it("lets the leader leave its own group", async () => {
+  it("takes the leader out like any other room", async () => {
     const wrapper = mountEditor();
 
-    const leave = wrapper
-      .findAll("button")
-      .find((button) => button.text() === "player_select.leave_group");
-    await leave!.trigger("click");
+    await card(wrapper, "k").trigger("click");
 
     expect(api.playerCommandUnGroup).toHaveBeenCalledWith("k");
-    expect(wrapper.emitted("close")).toHaveLength(1);
+    expect(api.playerCommandSetMembers).not.toHaveBeenCalled();
   });
 });

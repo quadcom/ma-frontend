@@ -23,6 +23,8 @@ export interface PlayerLocation {
 export interface PlayerLocationsReply {
   grouping?: string;
   players: Record<string, PlayerLocation>;
+  /** Colour key per group leader, when the server keeps group colours. */
+  group_colours?: Record<string, string>;
 }
 
 /** One heading of the list. A null title is the heading-less block. */
@@ -32,12 +34,6 @@ export interface SpeakerSection {
   isOther: boolean;
   rooms: Player[];
 }
-
-export type EditorTag =
-  | { kind: "this_room" }
-  | { kind: "playing" }
-  | { kind: "named"; name: string }
-  | { kind: "none" };
 
 export type SectionGroupAction =
   | { kind: "add"; ids: string[] }
@@ -253,29 +249,6 @@ function namedSections(
       isOther: false,
       rooms: byName(list),
     }));
-}
-
-/** What a card in the group editor says at its top edge. */
-export function editorTag(
-  room: Player,
-  leader: Player,
-  players: Player[],
-  bound: Map<string, string>,
-): EditorTag {
-  if (room.player_id === leader.player_id) return { kind: "this_room" };
-  const ownerId = bound.get(room.player_id);
-  if (ownerId === leader.player_id) {
-    return { kind: "named", name: getPlayerDisplayName(leader) };
-  }
-  if (ownerId === undefined) {
-    return room.playback_state === PlaybackState.PLAYING
-      ? { kind: "playing" }
-      : { kind: "none" };
-  }
-  const owner = players.find((player) => player.player_id === ownerId);
-  return owner
-    ? { kind: "named", name: getPlayerDisplayName(owner) }
-    : { kind: "none" };
 }
 
 /** A permanent member of the leader's group, which can never be taken out. */

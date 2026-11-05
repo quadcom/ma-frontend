@@ -2,7 +2,6 @@
 // observable under happy-dom, which in turn ignores @layer: the comparison
 // holds because both rules are unlayered in the compiled stylesheet
 // @vitest-environment happy-dom
-import groupControlSource from "@/layouts/default/PlayerOSD/PlayerBarGroupControl.vue?raw";
 import volumeControlSource from "@/layouts/default/PlayerOSD/PlayerBarVolumeControl.vue?raw";
 import playerSelectSource from "@/layouts/default/PlayerSelect.vue?raw";
 import {
@@ -160,7 +159,6 @@ function resolveWidth(className: string) {
 
 describe.each([
   ["player select", playerSelectSource],
-  ["group control", groupControlSource],
   ["volume control", volumeControlSource],
 ])("%s popout width", (_name, source) => {
   let widthStyles: HTMLStyleElement;

@@ -2792,10 +2792,18 @@
         "and_more": "...and {0} more",
         "back_to_players": "Back to players",
         "disable_player_confirmation": "This player will be hidden until it is enabled again in player settings.",
+        "colours": {
+            "green": "Green",
+            "orange": "Orange",
+            "pink": "Pink",
+            "purple": "Purple",
+            "teal": "Teal",
+            "yellow": "Yellow"
+        },
         "disable_player_title": "Disable {0}?",
+        "edit_group": "Group rooms with {name}",
         "group_hint": "Click a room to add it or take it out",
         "group_with": "Group with {name}",
-        "leave_group": "Leave group",
         "nothing_playing": "Nothing playing",
         "other": "Other",
         "paused": "Paused",
@@ -3060,10 +3068,6 @@
             "player_select": {
                 "title": "Pick a player",
                 "description": "Choose where the music plays. Pick a player and press play."
-            },
-            "player_group": {
-                "title": "Group players",
-                "description": "Add other players to the one you picked, so they play the same music together in several rooms. Players that cannot join are not offered."
             }
         }
     },

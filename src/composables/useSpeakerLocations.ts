@@ -13,6 +13,8 @@ const PLAYER_LOCATIONS_COMMAND = `${HASS_DOMAIN}/player_locations`;
 // Shared by every caller, so the last good reply survives closing the list.
 const locations = ref<Record<string, PlayerLocation>>();
 const grouping = ref<PlayerGrouping>("none");
+// undefined when the server does not keep group colours
+const serverGroupColours = ref<Record<string, string>>();
 
 /**
  * Where Home Assistant places each player, and how the household wants the
@@ -36,10 +38,11 @@ export function useSpeakerLocations() {
       if (!reply || typeof reply.players !== "object") return;
       locations.value = reply.players;
       grouping.value = parseGrouping(reply.grouping);
+      serverGroupColours.value = reply.group_colours;
     } catch {
       // Keep the last good reply; a server without the command has none.
     }
   }
 
-  return { locations, grouping, refresh };
+  return { locations, grouping, serverGroupColours, refresh };
 }

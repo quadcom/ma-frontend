@@ -2,36 +2,63 @@
   <div
     data-playing-room-row
     :data-player-id="player.player_id"
-    class="relative min-h-[84px] overflow-hidden rounded-xl border"
-    :class="
-      active
-        ? 'border-primary bg-[color-mix(in_oklab,var(--primary)_20%,var(--popover))]'
-        : 'bg-secondary border-transparent'
-    "
+    class="bg-muted relative min-h-[84px] overflow-hidden rounded-xl border"
+    :class="active ? 'border-primary' : 'border-transparent'"
   >
     <button
       type="button"
-      class="focus-visible:ring-ring absolute inset-0 z-0 rounded-xl outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-inset"
-      :aria-label="`${$t('tooltip.select_player')}: ${name}`"
+      class="focus-visible:ring-ring absolute inset-0 z-[2] rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-inset"
+      :aria-label="`${$t('tooltip.select_player')}: ${title}`"
       :aria-current="active ? 'true' : undefined"
       @click="emit('select', player)"
     ></button>
+    <template v-if="artUrl">
+      <img
+        :src="artUrl"
+        alt=""
+        aria-hidden="true"
+        class="pointer-events-none absolute inset-0 size-full scale-[1.04] object-cover opacity-55"
+        @error="artFailed = true"
+      />
+      <!-- dark at the bottom, fading out upward, so the text stays readable -->
+      <span
+        class="pointer-events-none absolute inset-0 bg-linear-to-t from-black/85 to-black/15"
+      ></span>
+    </template>
     <PlayerIcon
+      v-else
       :icon="player.icon"
       :size="58"
       aria-hidden="true"
-      class="text-muted-foreground pointer-events-none absolute -top-2 -left-2.5 opacity-[0.08]"
+      class="text-foreground pointer-events-none absolute -top-2 -left-2.5 opacity-[0.07]"
     />
+    <span
+      v-if="group"
+      data-group-corner
+      aria-hidden="true"
+      class="pointer-events-none absolute top-0 right-0 z-[1] size-[30px] [clip-path:polygon(0_0,100%_0,100%_100%)]"
+      :style="{ backgroundColor: group.hex }"
+    ></span>
     <div
       class="pointer-events-none relative z-[1] flex flex-col py-2.5 pr-[52px] pb-3 pl-4"
     >
-      <p class="text-base leading-[22px] font-medium">{{ name }}</p>
+      <p
+        class="text-base leading-[22px]"
+        :class="group ? 'font-semibold' : 'font-medium'"
+      >
+        {{ title }}
+      </p>
       <template v-if="media">
-        <p v-if="mediaLine" class="text-muted-foreground text-sm leading-5">
+        <p
+          v-if="mediaLine"
+          class="text-sm leading-5"
+          :class="artUrl ? 'text-foreground/85' : 'text-muted-foreground'"
+        >
           {{ mediaLine }}
         </p>
         <p
-          class="text-muted-foreground/80 mt-0.5 flex items-center gap-1.5 text-xs leading-4"
+          class="mt-0.5 flex items-center gap-1.5 text-xs leading-4"
+          :class="artUrl ? 'text-foreground/75' : 'text-muted-foreground/80'"
         >
           <AudioLines v-if="isPlaying" class="text-primary size-3" />
           {{ details }}
@@ -43,7 +70,7 @@
     </div>
     <span
       v-if="active"
-      class="text-primary pointer-events-none absolute top-1.5 right-3.5 z-[1] text-xs leading-4 font-medium"
+      class="text-primary pointer-events-none absolute right-3.5 bottom-2 z-[1] text-xs leading-4 font-medium"
     >
       {{ $t("player_select.active") }}
     </span>
@@ -51,14 +78,14 @@
       v-if="canGroup"
       variant="ghost"
       size="icon"
-      class="absolute top-1/2 right-1.5 z-[2] size-9 -translate-y-1/2"
-      :aria-label="$t('player_select.group_with', { name })"
+      class="absolute top-1/2 right-1.5 z-[3] size-9 -translate-y-1/2"
+      :aria-label="$t('player_select.edit_group', { name: title })"
       @click="emit('openGroupEditor', player)"
     >
-      <Link class="size-[26px]" />
+      <Link class="size-6" />
     </Button>
     <div
-      class="bg-primary/20 pointer-events-none absolute inset-x-0 bottom-0 h-[3px]"
+      class="bg-primary/20 pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[3px]"
     >
       <div
         class="bg-primary h-full transition-[width] duration-1000 ease-linear"
@@ -71,27 +98,39 @@
 <script setup lang="ts">
 import PlayerIcon from "@/components/PlayerIcon.vue";
 import { Button } from "@/components/ui/button";
+import type { GroupColour } from "@/composables/useGroupColours";
 import { resolveActiveElapsedTime } from "@/helpers/activeElapsedTime";
 import { canEditPlayerGroup, getPlayerDisplayName } from "@/helpers/players";
-import { formatDuration } from "@/helpers/utils";
+import {
+  formatDuration,
+  getImageThumbForItem,
+  getMediaImageUrl,
+} from "@/helpers/utils";
 import { resolvePlayerQueue } from "@/plugins/api/helpers";
-import { PlaybackState, type Player } from "@/plugins/api/interfaces";
+import {
+  ImageType,
+  PlaybackState,
+  type Player,
+  PlayerType,
+} from "@/plugins/api/interfaces";
 import { $t } from "@/plugins/i18n";
 import { AudioLines, Link } from "@lucide/vue";
 import { useIntervalFn } from "@vueuse/core";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 
 const TICK_MS = 1000;
 const KHZ = 1000;
+const ART_SIZE = 600;
 
 /**
- * A room that is playing, or the active room. A click makes it the active
- * room; the link button opens the group editor for this room without changing
- * the active room.
+ * A room that is playing, or the active room. A group is titled by its colour
+ * word and marked by an angled corner in its colour. A click makes it the active
+ * room; the link button opens the group editor without changing the active room.
  */
 const props = defineProps<{
   player: Player;
   active: boolean;
+  group?: GroupColour;
 }>();
 
 const emit = defineEmits<{
@@ -103,12 +142,37 @@ const emit = defineEmits<{
 const tick = ref(0);
 useIntervalFn(() => tick.value++, TICK_MS);
 
-const name = computed(() => getPlayerDisplayName(props.player));
+const artFailed = ref(false);
+// A group player keeps the name it was given; a group of rooms is its colour.
+const title = computed(() =>
+  props.group && props.player.type !== PlayerType.GROUP
+    ? props.group.name
+    : getPlayerDisplayName(props.player),
+);
 const media = computed(() => props.player.current_media);
+const queueItem = computed(
+  () => resolvePlayerQueue(props.player)?.current_item ?? undefined,
+);
 const isPlaying = computed(
   () => props.player.playback_state === PlaybackState.PLAYING,
 );
 const canGroup = computed(() => canEditPlayerGroup(props.player));
+
+// Fan art when the item has it, else the cover.
+const artUrl = computed(() => {
+  if (artFailed.value || !media.value) return undefined;
+  const item = queueItem.value?.media_item ?? undefined;
+  return (
+    getImageThumbForItem(item, ImageType.FANART, ART_SIZE) ||
+    getImageThumbForItem(queueItem.value, ImageType.THUMB, ART_SIZE) ||
+    getMediaImageUrl(media.value.image_url) ||
+    undefined
+  );
+});
+watch(
+  () => media.value?.uri,
+  () => (artFailed.value = false),
+);
 
 const mediaLine = computed(() =>
   [media.value?.title, media.value?.artist?.trim()].filter(Boolean).join(" · "),
@@ -130,8 +194,7 @@ const progress = computed(() => {
 });
 
 const quality = computed(() => {
-  const format = resolvePlayerQueue(props.player)?.current_item?.streamdetails
-    ?.audio_format;
+  const format = queueItem.value?.streamdetails?.audio_format;
   if (!format?.content_type || !format.sample_rate) return undefined;
   return `${format.content_type.toUpperCase()} ${format.sample_rate / KHZ} kHz`;
 });

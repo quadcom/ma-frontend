@@ -3,18 +3,6 @@
     <p class="text-muted-foreground px-4 pb-2 text-xs leading-4">
       {{ $t("player_select.group_hint") }}
     </p>
-    <div class="flex items-center gap-4 px-4 py-1">
-      <RoomCard
-        :player="leader"
-        :tag="$t('player_select.this_room')"
-        strong-tag
-        :highlighted="true"
-        inert
-      />
-      <Button v-if="canLeave" variant="outline" @click="leaveGroup">
-        {{ $t("player_select.leave_group") }}
-      </Button>
-    </div>
     <RoomSections :sections="sections">
       <template #action="{ section }">
         <Button
@@ -32,14 +20,7 @@
         </Button>
       </template>
       <template #card="{ room }">
-        <RoomCard
-          :player="room"
-          :highlighted="isMember(room)"
-          :tag="tagOf(room)"
-          strong-tag
-          :inert="isMember(room) && isLockedMember(room, leader)"
-          @click="toggle"
-        />
+        <RoomCard v-bind="cardProps(room)" @click="toggle" />
       </template>
     </RoomSections>
   </div>
@@ -49,12 +30,12 @@
 import { Button } from "@/components/ui/button";
 import RoomCard from "@/components/speakers/RoomCard.vue";
 import RoomSections from "@/components/speakers/RoomSections.vue";
+import { useGroupColours } from "@/composables/useGroupColours";
 import { useSpeakerLocations } from "@/composables/useSpeakerLocations";
 import { canBeGroupMember, groupMemberPickerVisible } from "@/helpers/players";
 import {
   boundLeaders,
   canLeaveOwnGroup,
-  editorTag,
   isLockedMember,
   type SectionGroupAction,
   sectionGroupAction,
@@ -62,36 +43,43 @@ import {
   speakerSections,
 } from "@/helpers/speaker_sections";
 import { api } from "@/plugins/api";
-import { type Player, PlayerType } from "@/plugins/api/interfaces";
+import {
+  PlaybackState,
+  type Player,
+  PlayerType,
+} from "@/plugins/api/interfaces";
 import { $t } from "@/plugins/i18n";
 import { computed } from "vue";
 
 /**
- * Picks the rooms grouped with the leader. A click on a card adds or removes
+ * Picks the rooms in the leader's group. A click on a card adds or removes
  * that room at once and the editor stays open, so several rooms can be picked;
- * the buttons on the headings add or remove a whole heading in one go.
+ * the buttons on the headings add or remove a whole heading in one go. The
+ * leader is a card like the others: taking it out hands the group to one of
+ * the rooms left, which keeps playing under the same colour.
  */
 const props = defineProps<{
   leader: Player;
 }>();
 
-const emit = defineEmits<{
-  close: [];
-}>();
-
 const { locations, grouping } = useSpeakerLocations();
+const { groupColour } = useGroupColours();
 
 const allPlayers = computed(() => Object.values(api.players));
 const bound = computed(() => boundLeaders(allPlayers.value));
+const leaderId = computed(() => props.leader.player_id);
+const ownColour = computed(() => groupColour(leaderId.value));
 
 const isMember = (room: Player) =>
-  bound.value.get(room.player_id) === props.leader.player_id;
+  bound.value.get(room.player_id) === leaderId.value;
 
-// The rooms the leader can group with; an unreachable room is only offered
-// while it is in this group, so it can be taken out.
+// The rooms the leader can group with, and the leader itself; an unreachable
+// room is only offered while it is in this group, so it can be taken out.
 const offered = computed(() =>
   allPlayers.value.filter((player) => {
-    if (player.player_id === props.leader.player_id) return false;
+    if (player.player_id === leaderId.value) {
+      return player.type !== PlayerType.GROUP;
+    }
     if (isMember(player)) return true;
     return (
       props.leader.can_group_with.includes(player.player_id) &&
@@ -100,7 +88,7 @@ const offered = computed(() =>
       groupMemberPickerVisible(player) &&
       canBeGroupMember(player) &&
       player.type !== PlayerType.GROUP &&
-      (!player.active_group || player.active_group === props.leader.player_id)
+      (!player.active_group || player.active_group === leaderId.value)
     );
   }),
 );
@@ -109,14 +97,32 @@ const sections = computed(() =>
   speakerSections(offered.value, locations.value, grouping.value),
 );
 
-const canLeave = computed(() => canLeaveOwnGroup(props.leader));
-
-function tagOf(room: Player): string | undefined {
-  const tag = editorTag(room, props.leader, allPlayers.value, bound.value);
-  if (tag.kind === "named") return tag.name;
-  if (tag.kind === "playing") return $t("player_select.playing");
-  if (tag.kind === "this_room") return $t("player_select.this_room");
-  return undefined;
+function cardProps(room: Player) {
+  if (room.player_id === leaderId.value) {
+    return {
+      player: room,
+      group: ownColour.value,
+      // on its own it is not a group yet, so it says which room it is
+      tag: ownColour.value ? undefined : $t("player_select.this_room"),
+      inert: !canLeaveOwnGroup(room),
+    };
+  }
+  if (isMember(room)) {
+    return {
+      player: room,
+      group: ownColour.value,
+      inert: isLockedMember(room, props.leader),
+    };
+  }
+  const otherLeader = bound.value.get(room.player_id) ?? room.player_id;
+  return {
+    player: room,
+    group: groupColour(otherLeader),
+    tag:
+      room.playback_state === PlaybackState.PLAYING
+        ? $t("player_select.playing")
+        : undefined,
+  };
 }
 
 function actionOf(section: SpeakerSection): SectionGroupAction {
@@ -124,7 +130,10 @@ function actionOf(section: SpeakerSection): SectionGroupAction {
 }
 
 function toggle(room: Player) {
-  if (isMember(room)) {
+  if (room.player_id === leaderId.value) {
+    // `ungroup` lets the server hand the group and its playback to a member
+    void api.playerCommandUnGroup(leaderId.value);
+  } else if (isMember(room)) {
     sendMembers(undefined, [room.player_id]);
   } else {
     sendMembers([room.player_id], undefined);
@@ -138,17 +147,11 @@ function applyAction(section: SpeakerSection) {
 }
 
 function sendMembers(add: string[] | undefined, remove: string[] | undefined) {
-  const leaderId = props.leader.player_id;
+  const id = leaderId.value;
   // A failure shows the API's error toast; the leader is read again so the
   // cards show what the server actually holds.
-  api.playerCommandSetMembers(leaderId, add, remove).catch(async () => {
-    api.players[leaderId] = await api.getPlayer(leaderId);
+  api.playerCommandSetMembers(id, add, remove).catch(async () => {
+    api.players[id] = await api.getPlayer(id);
   });
-}
-
-function leaveGroup() {
-  // `ungroup` lets the server hand the playback to a remaining member.
-  void api.playerCommandUnGroup(props.leader.player_id);
-  emit("close");
 }
 </script>
