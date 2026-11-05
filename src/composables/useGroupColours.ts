@@ -7,6 +7,7 @@ import {
 } from "@/helpers/group_colours";
 import { boundLeaders } from "@/helpers/speaker_sections";
 import { api } from "@/plugins/api";
+import { PlayerType } from "@/plugins/api/interfaces";
 import { $t } from "@/plugins/i18n";
 import { shallowRef, watch } from "vue";
 
@@ -23,8 +24,17 @@ const tracked = shallowRef(new Map<string, TrackedGroup>());
 const listeners = new Set<HandoverListener>();
 let watching = false;
 
-const readGroups = () =>
-  currentGroups(boundLeaders(Object.values(api.players ?? {})));
+// Only groups made on the fly get a colour: a permanent group player has a
+// name of its own (Adrian, 2026-11-05).
+const readGroups = () => {
+  const groups = currentGroups(boundLeaders(Object.values(api.players ?? {})));
+  for (const leader of groups.keys()) {
+    if (api.players?.[leader]?.type === PlayerType.GROUP) {
+      groups.delete(leader);
+    }
+  }
+  return groups;
+};
 
 // Only a change in who is grouped with whom counts, not every volume or
 // progress update a player sends.

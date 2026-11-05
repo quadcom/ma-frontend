@@ -62,7 +62,11 @@ import RoomCard from "@/components/speakers/RoomCard.vue";
 import RoomSections from "@/components/speakers/RoomSections.vue";
 import { useGroupColours } from "@/composables/useGroupColours";
 import { useSpeakerLocations } from "@/composables/useSpeakerLocations";
-import { isBuiltinPlayer, isPlayerUnavailable } from "@/helpers/players";
+import {
+  getPlayerDisplayName,
+  isBuiltinPlayer,
+  isPlayerUnavailable,
+} from "@/helpers/players";
 import {
   boundLeaders,
   membersOf,
@@ -122,7 +126,7 @@ const topRows = computed(() =>
     const player = props.players.find((p) => p.player_id === id);
     if (!player) return [];
     const group = groupColour(id);
-    const members = membersOf(id, Object.values(api.players), bound.value);
+    const members = membersOf(id, props.players, bound.value);
     // a group player is not a room of its own, so only its members are cards
     const speakers = !group
       ? []
@@ -185,14 +189,19 @@ function leaderOf(room: Player): string | undefined {
 function cardProps(room: Player) {
   const leader = leaderOf(room);
   const unavailable = isPlayerUnavailable(room);
+  const group = groupColour(leader);
+  const leaderPlayer = leader ? api.players[leader] : undefined;
   return {
     player: room,
-    group: groupColour(leader),
+    group,
+    // a permanent group player has no colour: its own name says where it is
     tag: room.needs_setup
       ? $t("settings.setup_required")
       : unavailable
         ? $t("player_select.unavailable")
-        : undefined,
+        : !group && leaderPlayer && leader !== room.player_id
+          ? getPlayerDisplayName(leaderPlayer)
+          : undefined,
     dimmed: leader !== undefined || unavailable,
     inert: unavailable || room.type === PlayerType.SOURCE,
   };
