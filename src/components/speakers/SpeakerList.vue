@@ -78,6 +78,7 @@ import {
 import {
   groupLeaderOf,
   groupSpeakers,
+  listPlayingRoomIds,
   toSections,
 } from "@/helpers/speaker_list";
 import {
@@ -135,7 +136,9 @@ const order = computed(() => {
   const visibleIds = new Set(rooms.value.map((p) => p.player_id));
   return nextTopOrder(
     props.topOrder,
-    playingRoomIds(rooms.value, bound.value),
+    list.value
+      ? listPlayingRoomIds(list.value, rooms.value, api.players)
+      : playingRoomIds(rooms.value, bound.value),
     props.activeId,
   ).filter((id) => visibleIds.has(id));
 });
@@ -227,7 +230,9 @@ function cardProps(room: Player) {
         ? $t("player_select.unavailable")
         : !group && leaderPlayer && leader !== room.player_id
           ? getPlayerDisplayName(leaderPlayer)
-          : undefined,
+          : list.value?.rooms[room.player_id]?.is_stereo_pair
+            ? $t("player_select.stereo")
+            : undefined,
     dimmed: leader !== undefined || unavailable,
     inert: unavailable || room.type === PlayerType.SOURCE,
   };

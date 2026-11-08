@@ -6,9 +6,13 @@ import {
   groupLeaderOf,
   groupSpeakers,
   isSpeakerListReply,
+  listLeaders,
+  listPlayingRoomIds,
+  permanentGroupOf,
   type SpeakerListReply,
   toSections,
 } from "./speaker_list";
+import { PlaybackState } from "@/plugins/api/interfaces";
 
 const roomEntry = (group_leader: string | null = null) => ({
   name: "",
@@ -112,5 +116,58 @@ describe("findHandovers", () => {
   it("sees no handover when a group simply ends", () => {
     const before = [{ leader: "k", colour: "orange", members: ["d"] }];
     expect(findHandovers(before, []).size).toBe(0);
+  });
+});
+
+describe("membership from the list", () => {
+  // Master Bedroom (mb, speakers m1 and m2, hidden) is in Kitchen's group.
+  const withPermanent: SpeakerListReply = {
+    ...reply,
+    rooms: { ...reply.rooms, mb: roomEntry("k") },
+    groups: [{ leader: "k", colour: "orange", members: ["d", "mb"] }],
+    permanent_groups: [
+      { player: "mb", name: "Master Bedroom", members: ["m1", "m2"] },
+    ],
+  };
+
+  it("maps each room in a group to its leader, a permanent group as one room", () => {
+    expect([...listLeaders(withPermanent)]).toEqual([
+      ["d", "k"],
+      ["mb", "k"],
+    ]);
+  });
+
+  it("finds a permanent group by its room", () => {
+    expect(permanentGroupOf(withPermanent, "mb")?.members).toEqual([
+      "m1",
+      "m2",
+    ]);
+    expect(permanentGroupOf(withPermanent, "k")).toBeUndefined();
+  });
+
+  it("counts a permanent group as playing when one of its speakers plays", () => {
+    const lead: SpeakerListReply = {
+      ...withPermanent,
+      rooms: { ...withPermanent.rooms, mb: roomEntry() },
+      groups: [],
+    };
+    const all = {
+      ...players,
+      mb: player({ player_id: "mb", name: "Master Bedroom" }),
+      m1: player({ player_id: "m1", playback_state: PlaybackState.PLAYING }),
+      x: player({ player_id: "x", playback_state: PlaybackState.PLAYING }),
+    };
+    expect(listPlayingRoomIds(lead, [all.k, all.mb, all.x], all)).toEqual([
+      "mb",
+      "x",
+    ]);
+  });
+
+  it("leaves out a room that plays inside another room's group", () => {
+    const all = {
+      ...players,
+      d: player({ player_id: "d", playback_state: PlaybackState.PLAYING }),
+    };
+    expect(listPlayingRoomIds(withPermanent, [all.k, all.d], all)).toEqual([]);
   });
 });

@@ -1,5 +1,6 @@
 <template>
   <div class="pb-6" data-group-editor>
+    <StereoPairSetup v-if="stereoGroup" :group="stereoGroup" />
     <p class="text-muted-foreground px-4 pb-2 text-xs leading-4">
       {{ $t("player_select.group_hint") }}
     </p>
@@ -30,9 +31,16 @@
 import { Button } from "@/components/ui/button";
 import RoomCard from "@/components/speakers/RoomCard.vue";
 import RoomSections from "@/components/speakers/RoomSections.vue";
+import StereoPairSetup from "@/components/speakers/StereoPairSetup.vue";
 import { useSpeakerList } from "@/composables/useSpeakerList";
 import { canBeGroupMember, groupMemberPickerVisible } from "@/helpers/players";
-import { groupLeaderOf, toSections } from "@/helpers/speaker_list";
+import {
+  groupLeaderOf,
+  listLeaders,
+  permanentGroupOf,
+  SET_MEMBERS_COMMAND,
+  toSections,
+} from "@/helpers/speaker_list";
 import {
   boundLeaders,
   canLeaveOwnGroup,
@@ -47,7 +55,9 @@ import {
   PlaybackState,
   type Player,
   PlayerType,
+  Scope,
 } from "@/plugins/api/interfaces";
+import { authManager } from "@/plugins/auth";
 import { $t } from "@/plugins/i18n";
 import { computed } from "vue";
 
@@ -65,9 +75,26 @@ const props = defineProps<{
 const { list, groupColour } = useSpeakerList();
 
 const allPlayers = computed(() => Object.values(api.players));
-const bound = computed(() => boundLeaders(allPlayers.value));
+// Who is in which group: the server's list when there is one (a permanent
+// group inside a group is one room there), else the players themselves.
+const bound = computed(() =>
+  list.value ? listLeaders(list.value) : boundLeaders(allPlayers.value),
+);
 const leaderId = computed(() => props.leader.player_id);
 const ownColour = computed(() => groupColour(leaderId.value));
+
+// A permanent group of two speakers can be made a stereo pair here, by users
+// who may change player settings.
+const PAIR_SIZE = 2;
+const stereoGroup = computed(() => {
+  const group = list.value
+    ? permanentGroupOf(list.value, leaderId.value)
+    : undefined;
+  return group?.members.length === PAIR_SIZE &&
+    authManager.hasScope(Scope.CONFIG_PLAYERS_WRITE)
+    ? group
+    : undefined;
+});
 
 const isMember = (room: Player) =>
   bound.value.get(room.player_id) === leaderId.value;
@@ -141,7 +168,9 @@ function cardProps(room: Player) {
     tag:
       room.playback_state === PlaybackState.PLAYING
         ? $t("player_select.playing")
-        : undefined,
+        : list.value?.rooms[room.player_id]?.is_stereo_pair
+          ? $t("player_select.stereo")
+          : undefined,
   };
 }
 
@@ -168,9 +197,18 @@ function applyAction(section: SpeakerSection) {
 
 function sendMembers(add: string[] | undefined, remove: string[] | undefined) {
   const id = leaderId.value;
-  // A failure shows the API's error toast; the leader is read again so the
-  // cards show what the server actually holds.
-  api.playerCommandSetMembers(id, add, remove).catch(async () => {
+  // With the server's list, its own command takes a permanent group in or out
+  // as one speaker. A failure is never retried with the stock command, so a
+  // group is never half-added: the API's error toast shows, and the leader is
+  // read again so the cards show what the server actually holds.
+  const sent = list.value
+    ? api.sendCommand(SET_MEMBERS_COMMAND, {
+        target_player: id,
+        player_ids_to_add: add ?? null,
+        player_ids_to_remove: remove ?? null,
+      })
+    : api.playerCommandSetMembers(id, add, remove);
+  sent.catch(async () => {
     api.players[id] = await api.getPlayer(id);
   });
 }

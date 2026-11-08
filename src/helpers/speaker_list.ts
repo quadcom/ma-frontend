@@ -3,9 +3,15 @@
 // draws it; these helpers turn the reply into what the components need and
 // never sort or filter what the server decided.
 import type { SpeakerSection } from "@/helpers/speaker_sections";
-import type { Player } from "@/plugins/api/interfaces";
+import { PlaybackState, type Player } from "@/plugins/api/interfaces";
 
 export const SPEAKER_LIST_COMMAND = "hass/speaker_list";
+/** Adds or removes rooms; a permanent group goes in or out as one speaker. */
+export const SET_MEMBERS_COMMAND = "hass/speaker_list/set_members";
+/** Plays a short ding on one speaker, to tell left from right. */
+export const STEREO_IDENTIFY_COMMAND = "hass/stereo_pair/identify";
+/** Saves which speaker of a pair is left; null turns the pair off. */
+export const STEREO_SET_COMMAND = "hass/stereo_pair/set";
 export const SPEAKER_LIST_EVENT_SUFFIX = "/speaker_list";
 
 /**
@@ -35,6 +41,8 @@ export interface SpeakerListRoom {
   is_permanent_group: boolean;
   /** The rooms this one can be grouped with. */
   group_with: string[];
+  /** A permanent group of two speakers playing left and right. */
+  is_stereo_pair?: boolean;
 }
 
 export interface SpeakerListSection {
@@ -54,6 +62,9 @@ export interface PermanentGroup {
   player: string;
   name: string;
   members: string[];
+  is_stereo_pair?: boolean;
+  /** The member playing the left channel, null when not a pair. */
+  stereo_left?: string | null;
 }
 
 export interface SpeakerListReply {
@@ -149,4 +160,49 @@ export function findHandovers(
     if (next) handovers.set(old.leader, next.leader);
   }
   return handovers;
+}
+
+/**
+ * Each room in a group mapped to its group's leader, as the server sees it.
+ * A permanent group inside a group is one room here, though the players
+ * themselves name its hidden speakers.
+ */
+export function listLeaders(reply: SpeakerListReply): Map<string, string> {
+  const leaders = new Map<string, string>();
+  for (const [id, room] of Object.entries(reply.rooms)) {
+    if (room.group_leader && room.group_leader !== id) {
+      leaders.set(id, room.group_leader);
+    }
+  }
+  return leaders;
+}
+
+/**
+ * The rooms playing on their own or leading a group, out of the rooms shown.
+ * A permanent group plays when any of its speakers does: the server may hand
+ * its lead to one of them.
+ */
+export function listPlayingRoomIds(
+  reply: SpeakerListReply,
+  rooms: Player[],
+  players: Record<string, Player>,
+): string[] {
+  const playing = (id: string) =>
+    players[id]?.playback_state === PlaybackState.PLAYING;
+  const leaders = listLeaders(reply);
+  return rooms
+    .map((room) => room.player_id)
+    .filter((id) => {
+      if (leaders.has(id)) return false;
+      const permanent = permanentGroupOf(reply, id);
+      return playing(id) || !!permanent?.members.some(playing);
+    });
+}
+
+/** The permanent group a room stands for, when it is one. */
+export function permanentGroupOf(
+  reply: SpeakerListReply,
+  roomId: string,
+): PermanentGroup | undefined {
+  return reply.permanent_groups.find((group) => group.player === roomId);
 }
