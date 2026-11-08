@@ -179,6 +179,12 @@
       </div>
     </v-alert>
 
+    <PlayerStereoPair
+      v-if="config"
+      :player-id="config.player_id"
+      class="mb-4"
+    />
+
     <PlayerSettingsLinks
       v-if="config"
       :player-id="config.player_id"
@@ -252,6 +258,7 @@ import {
 } from "@lucide/vue";
 import EditConfig from "./EditConfig.vue";
 import PlayerSettingsLinks from "./PlayerSettingsLinks.vue";
+import PlayerStereoPair from "./PlayerStereoPair.vue";
 
 const PLAYER_DOCS_URL =
   "https://music-assistant.io/settings/individual-player/";

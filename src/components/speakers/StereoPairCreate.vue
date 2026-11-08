@@ -1,31 +1,8 @@
 <template>
   <div class="pb-6" data-stereo-create>
-    <template v-if="groupId">
+    <div v-if="groupId" class="px-4">
       <StereoPairSetup :group="pairGroup" auto-start />
-    </template>
-
-    <template v-else-if="step === 'choose'">
-      <p class="text-muted-foreground px-4 pb-2 text-xs leading-4">
-        {{ $t("player_select.stereo_choose_hint") }}
-      </p>
-      <div class="space-y-1.5 px-4">
-        <Button
-          v-for="group in existingPairs"
-          :key="group.player"
-          variant="outline"
-          class="w-full justify-between"
-          @click="groupId = group.player"
-        >
-          <span class="truncate">{{ group.name }}</span>
-          <span v-if="group.is_stereo_pair" class="text-muted-foreground">
-            {{ $t("player_select.stereo") }}
-          </span>
-        </Button>
-        <Button variant="outline" class="w-full" @click="step = 'first'">
-          {{ $t("player_select.stereo_new") }}
-        </Button>
-      </div>
-    </template>
+    </div>
 
     <template v-else-if="step === 'name'">
       <div class="space-y-3 px-4">
@@ -90,30 +67,22 @@ import { computed, ref } from "vue";
 import { toast } from "vue-sonner";
 
 /**
- * Makes a stereo pair from the speaker panel: pick a group of two speakers
- * that already exists, or two speakers to make a new one, then the ding asks
- * which one is on the left. The server makes the group in one call.
+ * Makes a new stereo pair: pick two speakers that can play together and name
+ * the pair, then the ding asks which one is on the left. The server makes the
+ * group in one call. A pair's left and right are checked again on its own
+ * settings page.
  */
-const PAIR_SIZE = 2;
-
-type Step = "choose" | "first" | "second" | "name";
+type Step = "first" | "second" | "name";
 
 const { list } = useSpeakerList();
 
-const step = ref<Step>("choose");
+const step = ref<Step>("first");
 const first = ref("");
 const second = ref("");
 const pairName = ref("");
 const busy = ref(false);
 // the pair being set up, once chosen or made
 const groupId = ref<string>();
-
-const existingPairs = computed(
-  () =>
-    list.value?.permanent_groups.filter(
-      (group) => group.members.length === PAIR_SIZE,
-    ) ?? [],
-);
 
 // A room that can be half of a pair: a single speaker, online, not this device.
 function canPair(id: string): boolean {

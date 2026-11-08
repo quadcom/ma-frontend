@@ -1,6 +1,6 @@
 <template>
   <div
-    class="bg-muted mx-4 mb-3 rounded-[8px] px-3 py-2.5 max-[500px]:rounded-[4px]"
+    class="bg-muted rounded-[8px] px-3 py-2.5 max-[500px]:rounded-[4px]"
     data-stereo-pair
   >
     <template v-if="asking">
@@ -42,15 +42,6 @@
             : $t("player_select.stereo_set_up")
         }}
       </Button>
-      <Button
-        v-if="left"
-        size="sm"
-        variant="ghost"
-        :disabled="busy"
-        @click="save(null)"
-      >
-        {{ $t("player_select.stereo_off") }}
-      </Button>
     </div>
   </div>
 </template>
@@ -70,7 +61,7 @@ import { toast } from "vue-sonner";
 /**
  * Makes a permanent group of two speakers a stereo pair, the way Sonos does:
  * one speaker plays a ding and the user says whether it is the left one.
- * Shown in the group's editor to users who may change player settings.
+ * Shown on the pair's settings page to users who may change player settings.
  */
 const props = defineProps<{
   group: PermanentGroup;
@@ -134,7 +125,7 @@ function answer(isLeft: boolean) {
   else if (other) void save(other);
 }
 
-async function save(leftId: string | null) {
+async function save(leftId: string) {
   const saved = await run(() =>
     api.sendCommand(STEREO_SET_COMMAND, {
       group_id: props.group.player,
@@ -143,11 +134,7 @@ async function save(leftId: string | null) {
   );
   if (!saved) return;
   asking.value = undefined;
-  toast.success(
-    leftId
-      ? $t("player_select.stereo_saved")
-      : $t("player_select.stereo_turned_off"),
-  );
+  toast.success($t("player_select.stereo_saved"));
 }
 
 onMounted(() => {

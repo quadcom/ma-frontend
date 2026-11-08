@@ -87,17 +87,12 @@ describe("StereoPairSetup", () => {
     });
   });
 
-  it("says which side is left and can turn the pair off", async () => {
+  it("says which side is left, with no way to turn the pair off", () => {
     const wrapper = mountSetup("m2");
 
     expect(wrapper.text()).toContain("player_select.stereo_left_is:MB Two");
-    await button(wrapper, "player_select.stereo_off").trigger("click");
-    await flushPromises();
-
-    expect(api.sendCommand).toHaveBeenCalledWith(SET, {
-      group_id: "mb",
-      left_player_id: null,
-    });
+    expect(wrapper.text()).toContain("player_select.stereo_check");
+    expect(wrapper.text()).not.toContain("player_select.stereo_off");
   });
 
   it("does not ask when the ding fails", async () => {

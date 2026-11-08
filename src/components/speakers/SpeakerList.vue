@@ -230,9 +230,7 @@ function cardProps(room: Player) {
         ? $t("player_select.unavailable")
         : !group && leaderPlayer && leader !== room.player_id
           ? getPlayerDisplayName(leaderPlayer)
-          : list.value?.rooms[room.player_id]?.is_stereo_pair
-            ? $t("player_select.stereo")
-            : undefined,
+          : undefined,
     dimmed: leader !== undefined || unavailable,
     inert: unavailable || room.type === PlayerType.SOURCE,
   };

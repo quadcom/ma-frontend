@@ -109,17 +109,9 @@ beforeEach(() => {
 });
 
 describe("StereoPairCreate", () => {
-  it("offers the groups of two speakers and a new pair", () => {
-    const wrapper = mountCreate();
-
-    expect(wrapper.text()).toContain("Kitchen pair");
-    expect(wrapper.text()).toContain("player_select.stereo_new");
-  });
-
   it("offers only single online speakers, then those that play with the first", async () => {
     const wrapper = mountCreate();
 
-    await buttonNamed(wrapper, "player_select.stereo_new").trigger("click");
     expect(cardIds(wrapper)).toEqual(["a", "b", "c"]);
 
     await wrapper.get('[data-player-id="a"]').trigger("click");
@@ -133,7 +125,6 @@ describe("StereoPairCreate", () => {
       )) as never);
     const wrapper = mountCreate();
 
-    await buttonNamed(wrapper, "player_select.stereo_new").trigger("click");
     await wrapper.get('[data-player-id="a"]').trigger("click");
     await wrapper.get('[data-player-id="b"]').trigger("click");
     expect((wrapper.get("input").element as HTMLInputElement).value).toBe(
@@ -153,7 +144,6 @@ describe("StereoPairCreate", () => {
     vi.mocked(api.sendCommand).mockRejectedValueOnce(new Error("no"));
     const wrapper = mountCreate();
 
-    await buttonNamed(wrapper, "player_select.stereo_new").trigger("click");
     await wrapper.get('[data-player-id="a"]').trigger("click");
     await wrapper.get('[data-player-id="b"]').trigger("click");
     await buttonNamed(wrapper, "player_select.stereo_create").trigger("click");

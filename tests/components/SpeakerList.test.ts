@@ -420,25 +420,20 @@ describe("stereo pairs", () => {
     api.players.m2 = player({ player_id: "m2", name: "MB Two" });
   });
 
-  it("marks a stereo pair's card", () => {
+  it("doesn't say what kind of group a pair is", () => {
     holder.list.value = pairList(true);
     const wrapper = mountList();
 
-    expect(card(wrapper, "mb").text()).toContain("player_select.stereo");
+    expect(card(wrapper, "mb").text()).not.toContain("player_select.stereo");
   });
 
-  it("offers the set-up in a pair's own editor only", () => {
+  it("leaves left and right out of the group editor", () => {
     holder.list.value = pairList(false);
     const pair = mount(GroupEditor, {
       ...mountOptions,
       props: { leader: api.players.mb },
     });
-    const other = mount(GroupEditor, {
-      ...mountOptions,
-      props: { leader: api.players.k },
-    });
 
-    expect(pair.find("[data-stereo-pair]").exists()).toBe(true);
-    expect(other.find("[data-stereo-pair]").exists()).toBe(false);
+    expect(pair.find("[data-stereo-pair]").exists()).toBe(false);
   });
 });

@@ -1,6 +1,5 @@
 <template>
   <div class="pb-6" data-group-editor>
-    <StereoPairSetup v-if="stereoGroup" :group="stereoGroup" />
     <p class="text-muted-foreground px-4 pb-2 text-xs leading-4">
       {{ $t("player_select.group_hint") }}
     </p>
@@ -31,13 +30,11 @@
 import { Button } from "@/components/ui/button";
 import RoomCard from "@/components/speakers/RoomCard.vue";
 import RoomSections from "@/components/speakers/RoomSections.vue";
-import StereoPairSetup from "@/components/speakers/StereoPairSetup.vue";
 import { useSpeakerList } from "@/composables/useSpeakerList";
 import { canBeGroupMember, groupMemberPickerVisible } from "@/helpers/players";
 import {
   groupLeaderOf,
   listLeaders,
-  permanentGroupOf,
   SET_MEMBERS_COMMAND,
   toSections,
 } from "@/helpers/speaker_list";
@@ -55,9 +52,7 @@ import {
   PlaybackState,
   type Player,
   PlayerType,
-  Scope,
 } from "@/plugins/api/interfaces";
-import { authManager } from "@/plugins/auth";
 import { $t } from "@/plugins/i18n";
 import { computed } from "vue";
 
@@ -82,19 +77,6 @@ const bound = computed(() =>
 );
 const leaderId = computed(() => props.leader.player_id);
 const ownColour = computed(() => groupColour(leaderId.value));
-
-// A permanent group of two speakers can be made a stereo pair here, by users
-// who may change player settings.
-const PAIR_SIZE = 2;
-const stereoGroup = computed(() => {
-  const group = list.value
-    ? permanentGroupOf(list.value, leaderId.value)
-    : undefined;
-  return group?.members.length === PAIR_SIZE &&
-    authManager.hasScope(Scope.CONFIG_PLAYERS_WRITE)
-    ? group
-    : undefined;
-});
 
 const isMember = (room: Player) =>
   bound.value.get(room.player_id) === leaderId.value;
@@ -168,9 +150,7 @@ function cardProps(room: Player) {
     tag:
       room.playback_state === PlaybackState.PLAYING
         ? $t("player_select.playing")
-        : list.value?.rooms[room.player_id]?.is_stereo_pair
-          ? $t("player_select.stereo")
-          : undefined,
+        : undefined,
   };
 }
 
