@@ -14,7 +14,16 @@
           @click="showAddPlayerGroupDialog = true"
         >
           <Plus class="size-4" />
-          {{ $t("settings.add_group_player") }}
+          {{ $t("settings.create_group") }}
+        </Button>
+        <Button
+          v-if="canMakePairs"
+          variant="outline"
+          data-testid="create-stereo-pair"
+          @click="showStereoPairDialog = true"
+        >
+          <Plus class="size-4" />
+          {{ $t("settings.create_stereo_pair") }}
         </Button>
       </div>
     </div>
@@ -73,6 +82,7 @@
       </i18n-t>
     </div>
     <AddPlayerGroupDialog v-model:show="showAddPlayerGroupDialog" />
+    <StereoPairDialog v-model:show="showStereoPairDialog" />
   </div>
 </template>
 
@@ -85,6 +95,7 @@ import { Button } from "@/components/ui/button";
 import { ItemGroup } from "@/components/ui/item";
 
 import { getEventPosition } from "@/composables/useHoldToOpenMenu";
+import { useSpeakerList } from "@/composables/useSpeakerList";
 import {
   getListedPlayerConfigs,
   getPlayerName,
@@ -106,6 +117,7 @@ import { Info, Plus, VolumeOff } from "@lucide/vue";
 import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import AddPlayerGroupDialog from "./AddPlayerGroupDialog.vue";
+import StereoPairDialog from "./StereoPairDialog.vue";
 
 // global refs
 const router = useRouter();
@@ -124,6 +136,12 @@ const selectedProviders = ref<string[]>([]);
 const selectedPlayerTypes = ref<string[]>([]);
 const selectedStatuses = ref<string[]>([]);
 const showAddPlayerGroupDialog = ref<boolean>(false);
+const showStereoPairDialog = ref<boolean>(false);
+const { list: speakerList } = useSpeakerList();
+// stereo pairs come from the server's speaker list and change player settings
+const canMakePairs = computed(
+  () => !!speakerList.value && authManager.hasScope(Scope.CONFIG_PLAYERS_WRITE),
+);
 
 // listen for item updates to refresh items when that happens
 const unsub = api.subscribe_multi([EventType.PLAYER_CONFIG_UPDATED], () => {

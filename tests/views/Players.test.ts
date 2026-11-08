@@ -75,6 +75,18 @@ vi.mock("@/views/settings/AddPlayerGroupDialog.vue", () => ({
   },
 }));
 
+vi.mock("@/views/settings/StereoPairDialog.vue", () => ({
+  default: {
+    template: "<div />",
+  },
+}));
+
+const speakerList = vi.hoisted(() => ({ value: undefined as unknown }));
+
+vi.mock("@/composables/useSpeakerList", () => ({
+  useSpeakerList: () => ({ list: speakerList }),
+}));
+
 vi.mock("vue-router", () => ({
   useRouter: () => ({
     push: routerPush,
@@ -113,6 +125,7 @@ const passthroughStub = {
 describe("Players", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    speakerList.value = undefined;
     hasScope.mockImplementation(scopeChecker(BUILTIN_ROLE_SCOPES.admin));
     playerConfig.enabled = true;
     webPlayer.player_id = null;
@@ -137,6 +150,23 @@ describe("Players", () => {
     apiMock.getProviderManifest.mockReturnValue(providerManifest());
     apiMock.subscribe_multi.mockReturnValue(vi.fn());
     getPlayerSettingsMenuItems.mockReturnValue([{ label: "settings.delete" }]);
+  });
+
+  it("offers a stereo pair when the server builds the speaker list", async () => {
+    speakerList.value = { permanent_groups: [] };
+    const wrapper = await mountPlayers("list");
+
+    expect(wrapper.find('[data-testid="create-stereo-pair"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it("leaves the stereo pair out without the server's list", async () => {
+    const wrapper = await mountPlayers("list");
+
+    expect(wrapper.find('[data-testid="create-stereo-pair"]').exists()).toBe(
+      false,
+    );
   });
 
   it("points an admin to the player providers", async () => {

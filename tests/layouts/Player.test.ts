@@ -1,5 +1,4 @@
 import Player from "@/layouts/default/PlayerOSD/Player.vue";
-import PlayerBarGroupControl from "@/layouts/default/PlayerOSD/PlayerBarGroupControl.vue";
 import PlayerBarMobileVolumeSheet from "@/layouts/default/PlayerOSD/PlayerBarMobileVolumeSheet.vue";
 import PlayerTrackDetails from "@/layouts/default/PlayerOSD/PlayerTrackDetails.vue";
 import FavoriteMenuBtn from "@/layouts/default/PlayerOSD/PlayerControlBtn/FavoriteMenuBtn.vue";
@@ -93,13 +92,12 @@ afterEach(() => {
 });
 
 describe("Player floating mobile bar", () => {
-  it("carries the grouping control, the volume slider and its sheet", () => {
+  it("carries the volume slider and its sheet, but no grouping control", () => {
     mockStore.activePlayer = { player_id: "p1" } as PlayerModel;
     const player = mountPlayer(true);
 
-    expect(player.findComponent(PlayerBarGroupControl).props("floating")).toBe(
-      true,
-    );
+    // grouping is done from the speaker list now
+    expect(player.find('[data-tour="player_group"]').exists()).toBe(false);
     expect(player.find(".volume-slider").exists()).toBe(true);
     expect(player.findComponent(PlayerVolume).exists()).toBe(true);
     expect(player.findComponent(PlayerBarMobileVolumeSheet).exists()).toBe(

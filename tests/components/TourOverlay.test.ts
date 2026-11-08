@@ -107,7 +107,6 @@ const BOXES: Record<string, Box> = {
   profile: { top: 560, left: 8, width: 240, height: 48 },
   player_bar: { top: 620, left: 0, width: 1200, height: 80 },
   player_select: { top: 620, left: 1100, width: 96, height: 80 },
-  player_group: { top: 620, left: 1020, width: 72, height: 80 },
 };
 
 /**
@@ -218,7 +217,7 @@ describe("TourOverlay", () => {
     const overlay = await startTour();
 
     expect(title()).toBe("tour.stops.menu.title");
-    expect(overlay.find("[data-testid=tour-counter]").text()).toBe("1 of 7");
+    expect(overlay.find("[data-testid=tour-counter]").text()).toBe("1 of 6");
     expect(overlay.find("[data-testid=tour-next]").text()).toBe("tour.next");
     // nothing to go back to yet
     expect(
@@ -229,7 +228,7 @@ describe("TourOverlay", () => {
       await overlay.find("[data-testid=tour-next]").trigger("click");
       expect(title()).toBe(`tour.stops.${id}.title`);
     }
-    expect(overlay.find("[data-testid=tour-counter]").text()).toBe("7 of 7");
+    expect(overlay.find("[data-testid=tour-counter]").text()).toBe("6 of 6");
     expect(overlay.find("[data-testid=tour-next]").text()).toBe("done");
 
     await overlay.find("[data-testid=tour-next]").trigger("click");

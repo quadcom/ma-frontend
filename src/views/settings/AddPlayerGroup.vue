@@ -4,7 +4,7 @@
       <!-- header -->
       <div style="margin-left: -5px; margin-right: -5px">
         <v-card-title>
-          {{ $t("settings.add_group_player") }}
+          {{ $t("settings.create_group") }}
         </v-card-title>
         <!-- eslint-disable vue/no-v-html -- markdownToHtml sanitizes with DOMPurify -->
         <v-card-subtitle
@@ -48,7 +48,7 @@
           <v-switch
             v-model="dynamic"
             color="primary"
-            :label="$t('settings.dynamic_members.label')"
+            :label="$t('settings.group_dynamic_label')"
           />
           <v-card-subtitle
             v-if="providerDetails?.domain !== 'universal_group'"
@@ -59,7 +59,7 @@
               margin-bottom: 35px;
             "
           >
-            {{ $t("settings.dynamic_members.description") }}
+            {{ $t("settings.group_dynamic_desc") }}
           </v-card-subtitle>
           <br />
           <v-btn
@@ -93,7 +93,8 @@ import { PlayerFeature, PlayerType } from "@/plugins/api/interfaces";
 const router = useRouter();
 const name = ref<string>("");
 const members = ref<string[]>([]);
-const dynamic = ref<boolean>(true);
+// off makes a permanent group, the usual kind; on a dynamic one
+const dynamic = ref<boolean>(false);
 const valid = ref<boolean>(false);
 
 // props
