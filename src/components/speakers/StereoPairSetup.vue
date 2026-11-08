@@ -64,7 +64,7 @@ import {
 } from "@/helpers/speaker_list";
 import { api } from "@/plugins/api";
 import { $t } from "@/plugins/i18n";
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { toast } from "vue-sonner";
 
 /**
@@ -74,6 +74,8 @@ import { toast } from "vue-sonner";
  */
 const props = defineProps<{
   group: PermanentGroup;
+  /** Play the first ding right away, as when the pair was just picked. */
+  autoStart?: boolean;
 }>();
 
 // the speaker that just played the ding, while waiting for the answer
@@ -147,4 +149,8 @@ async function save(leftId: string | null) {
       : $t("player_select.stereo_turned_off"),
   );
 }
+
+onMounted(() => {
+  if (props.autoStart) start();
+});
 </script>

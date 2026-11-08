@@ -130,6 +130,7 @@ vi.mock("@/composables/userPreferences", async () => {
 
 vi.mock("@/composables/useSpeakerList", () => ({
   useSpeakerList: () => ({
+    list: { value: undefined },
     refresh: refreshLocations,
     groupColour: () => undefined,
     onHandover: () => () => {},

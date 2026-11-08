@@ -56,18 +56,34 @@
         class="flex min-h-10 items-center gap-1 px-4 pt-1 pb-2"
       >
         <Button
-          v-if="editorLeader"
+          v-if="editorLeader || pairing"
           variant="ghost"
           size="icon-sm"
           class="-ml-2"
           :aria-label="$t('player_select.back_to_players')"
-          @click="closeGroupEditor"
+          @click="closeSubView"
         >
           <ArrowLeft class="size-5" />
         </Button>
-        <h2 class="min-w-0 truncate text-lg font-semibold">
-          {{ editorLeader ? editorTitle : $t("players") }}
+        <h2 class="min-w-0 flex-1 truncate text-lg font-semibold">
+          {{
+            editorLeader
+              ? editorTitle
+              : pairing
+                ? $t("player_select.stereo_title")
+                : $t("players")
+          }}
         </h2>
+        <Button
+          v-if="canMakePairs && !editorLeader && !pairing"
+          variant="ghost"
+          size="icon-sm"
+          :aria-label="$t('player_select.stereo_title')"
+          :title="$t('player_select.stereo_title')"
+          @click="openPairing"
+        >
+          <Speaker class="size-5" />
+        </Button>
         <p class="sr-only">{{ $t("tooltip.select_player") }}</p>
       </div>
 
@@ -80,6 +96,7 @@
           :leader="editorLeader"
           @close="closeGroupEditor"
         />
+        <StereoPairCreate v-else-if="pairing" />
         <SpeakerList
           v-else
           v-model:top-order="topOrder"
@@ -96,6 +113,7 @@
 <script setup lang="ts">
 import PanelDragHandle from "@/components/PanelDragHandle.vue";
 import GroupEditor from "@/components/speakers/GroupEditor.vue";
+import StereoPairCreate from "@/components/speakers/StereoPairCreate.vue";
 import SpeakerList from "@/components/speakers/SpeakerList.vue";
 import { Button } from "@/components/ui/button";
 import {
@@ -128,7 +146,7 @@ import { eventbus } from "@/plugins/eventbus";
 import { $t } from "@/plugins/i18n";
 import { store } from "@/plugins/store";
 import { webPlayer } from "@/plugins/web_player";
-import { ArrowLeft } from "@lucide/vue";
+import { ArrowLeft, Speaker } from "@lucide/vue";
 import {
   computed,
   nextTick,
@@ -150,6 +168,7 @@ const editorFor = ref<string>();
 const topOrder = ref<string[]>([]);
 const { getPreference, setPreference } = useUserPreferences();
 const {
+  list: speakerList,
   refresh: refreshSpeakerList,
   groupColour,
   onHandover,
@@ -176,6 +195,13 @@ const visiblePlayers = computed(() =>
   Object.values(api.players).filter((player) =>
     playerVisible(player, true, allowNeedsSetup(), true),
   ),
+);
+
+// The stereo pair view, in place of the speaker list; only with the server's
+// list, for users who may change player settings.
+const pairing = ref(false);
+const canMakePairs = computed(
+  () => !!speakerList.value && authManager.hasScope(Scope.CONFIG_PLAYERS_WRITE),
 );
 
 const editorLeader = computed(() =>
@@ -286,9 +312,10 @@ function setMenuOpen(isOpen: boolean) {
 function handleSheetKeydown(event: KeyboardEvent) {
   event.stopPropagation();
   if (event.key !== "Escape") return;
-  // Escape steps back from the group editor to the list before closing
-  if (editorFor.value) {
-    closeGroupEditor();
+  // Escape steps back from the group editor or the pair view to the list
+  // before closing
+  if (editorFor.value || pairing.value) {
+    closeSubView();
   } else {
     setMenuOpen(false);
   }
@@ -359,6 +386,16 @@ function closeGroupEditor() {
   editorFor.value = undefined;
 }
 
+function openPairing() {
+  pairing.value = true;
+  playerList.value?.scrollTo?.({ top: 0 });
+}
+
+function closeSubView() {
+  editorFor.value = undefined;
+  pairing.value = false;
+}
+
 /**
  * Open the group editor of the active player when the panel is opened from
  * the fullscreen player, where changing the group is the only reason to open it.
@@ -372,6 +409,7 @@ function openActivePlayerGroupEditor() {
 
 function resetPanelState() {
   editorFor.value = undefined;
+  pairing.value = false;
 }
 
 function checkDefaultPlayer() {

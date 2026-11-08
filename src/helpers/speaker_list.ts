@@ -12,6 +12,8 @@ export const SET_MEMBERS_COMMAND = "hass/speaker_list/set_members";
 export const STEREO_IDENTIFY_COMMAND = "hass/stereo_pair/identify";
 /** Saves which speaker of a pair is left; null turns the pair off. */
 export const STEREO_SET_COMMAND = "hass/stereo_pair/set";
+/** Makes a permanent group of two speakers, ready to become a stereo pair. */
+export const STEREO_CREATE_COMMAND = "hass/stereo_pair/create";
 export const SPEAKER_LIST_EVENT_SUFFIX = "/speaker_list";
 
 /**
