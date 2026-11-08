@@ -117,6 +117,7 @@
             <BookOpen class="size-4" />
             {{ $t("settings.documentation") }}
           </Button>
+          <PlayerRoomButton :player-id="config.player_id" />
         </CardContent>
       </Card>
     </div>
@@ -257,6 +258,7 @@ import {
   RotateCcw,
 } from "@lucide/vue";
 import EditConfig from "./EditConfig.vue";
+import PlayerRoomButton from "./PlayerRoomButton.vue";
 import PlayerSettingsLinks from "./PlayerSettingsLinks.vue";
 import PlayerStereoPair from "./PlayerStereoPair.vue";
 
