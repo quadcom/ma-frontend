@@ -132,7 +132,6 @@ import {
   ImageType,
   PlaybackState,
   type Player,
-  PlayerType,
 } from "@/plugins/api/interfaces";
 import { $t } from "@/plugins/i18n";
 import { AudioLines, Link, Pause, Play, Square } from "@lucide/vue";
@@ -164,11 +163,10 @@ const tick = ref(0);
 useIntervalFn(() => tick.value++, TICK_MS);
 
 const artFailed = ref(false);
-// A group player keeps the name it was given; a group of rooms is its colour.
+// A group goes by its colour, whoever leads it (a stereo pair or permanent
+// group too), as on the phone; a room or group player on its own keeps its name.
 const title = computed(() =>
-  props.group && props.player.type !== PlayerType.GROUP
-    ? props.group.name
-    : getPlayerDisplayName(props.player),
+  props.group ? props.group.name : getPlayerDisplayName(props.player),
 );
 const media = computed(() => props.player.current_media);
 const queueItem = computed(

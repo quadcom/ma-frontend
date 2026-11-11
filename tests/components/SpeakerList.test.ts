@@ -427,6 +427,27 @@ describe("stereo pairs", () => {
     expect(card(wrapper, "mb").text()).not.toContain("player_select.stereo");
   });
 
+  it("names a group a pair leads by its colour, as the phone does", () => {
+    const list = pairList(true);
+    list.rooms.mb.group_with = ["d"];
+    list.rooms.d = room({ group_leader: "mb" });
+    list.groups = [{ leader: "mb", colour: "purple", members: ["d"] }];
+    holder.list.value = list;
+    api.players.mb = {
+      ...api.players.mb,
+      playback_state: PlaybackState.PLAYING,
+    };
+    const wrapper = mountList("mb");
+
+    const titles = wrapper
+      .findAll("[data-playing-room-row]")
+      .map((row) => row.text());
+    expect(titles.some((t) => t.includes("player_select.colours.purple"))).toBe(
+      true,
+    );
+    expect(titles.some((t) => t.includes("Master Bedroom"))).toBe(false);
+  });
+
   it("leaves left and right out of the group editor", () => {
     holder.list.value = pairList(false);
     const pair = mount(GroupEditor, {

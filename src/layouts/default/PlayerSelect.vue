@@ -182,13 +182,13 @@ const editorLeader = computed(() =>
   editorFor.value ? api.players[editorFor.value] : undefined,
 );
 
-// A group of rooms is named by its colour; a group player keeps its own name;
-// a room on its own is about to become one.
+// A group is named by its colour, whoever leads it; a group player on its own
+// keeps its own name; a room on its own is about to become a group.
 const editorTitle = computed(() => {
   const leader = editorLeader.value;
   if (!leader) return "";
   const colour = groupColour(leader.player_id);
-  if (colour && leader.type !== PlayerType.GROUP) return colour.name;
+  if (colour) return colour.name;
   if (leader.type === PlayerType.GROUP) return getPlayerDisplayName(leader);
   return $t("player_select.group_with", { name: getPlayerDisplayName(leader) });
 });
