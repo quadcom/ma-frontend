@@ -21,6 +21,7 @@
     >
       <PlayerIcon
         :icon="store.activePlayer?.icon"
+        :grouped="showsGroupIcon(store.activePlayer ?? undefined)"
         :size="28"
         :stroke-width="1.4"
         class="size-7"
@@ -41,6 +42,7 @@ import PlayerIcon from "@/components/PlayerIcon.vue";
 import { Button } from "@/components/ui/button";
 import { useSpeakerList } from "@/composables/useSpeakerList";
 import { usePopoutTriggerHover } from "@/composables/usePopoutTriggerHover";
+import { showsGroupIcon } from "@/helpers/group_label";
 import { getPlayerDisplayName } from "@/helpers/players";
 import { $t } from "@/plugins/i18n";
 import { store } from "@/plugins/store";

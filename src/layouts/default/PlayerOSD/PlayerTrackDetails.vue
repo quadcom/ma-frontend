@@ -35,10 +35,7 @@
         >
           <PlayerIcon
             :icon="store.activePlayer?.icon"
-            :grouped="
-              store.activePlayer?.type == PlayerType.PLAYER &&
-              !!store.activePlayer?.group_members.length
-            "
+            :grouped="showsGroupIcon(store.activePlayer)"
             :size="props.compact ? 22 : 32"
           />
         </div>
@@ -64,7 +61,10 @@
           v-else-if="store.activePlayer.powered == false"
           class="ma-line-clamp-1"
         >
-          {{ getPlayerDisplayName(store.activePlayer) }}
+          {{
+            groupColourName(store.activePlayer.player_id) ??
+            getPlayerDisplayName(store.activePlayer)
+          }}
         </div>
         <!-- track title -->
         <div
@@ -92,7 +92,10 @@
         </div>
         <!-- fallback: player name, so the title never renders blank -->
         <div v-else class="ma-line-clamp-1">
-          {{ getPlayerDisplayName(store.activePlayer) }}
+          {{
+            groupColourName(store.activePlayer.player_id) ??
+            getPlayerDisplayName(store.activePlayer)
+          }}
         </div>
       </div>
     </template>
@@ -195,6 +198,7 @@ import PlayerIcon from "@/components/PlayerIcon.vue";
 import QualityDetailsBtn from "@/components/QualityDetailsBtn.vue";
 import { MarqueeTextSync } from "@/helpers/marquee_text_sync";
 import { openCurrentTrackDetails } from "@/helpers/now_playing";
+import { groupColourName, showsGroupIcon } from "@/helpers/group_label";
 import { getPlayerDisplayName } from "@/helpers/players";
 import { isQueueEnded } from "@/helpers/queue_position";
 import { resolveActiveElapsedTime } from "@/helpers/activeElapsedTime";

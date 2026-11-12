@@ -87,12 +87,7 @@
               <PlayerIcon
                 v-else
                 :icon="player.icon"
-                :grouped="
-                  player.type === PlayerType.PLAYER &&
-                  player.group_members.some(
-                    (playerId) => playerId !== player.player_id,
-                  )
-                "
+                :grouped="showsGroupIcon(player)"
                 :size="24"
                 class="opacity-80"
               />
@@ -238,6 +233,9 @@ import {
   getEventPosition,
   useHoldToOpenMenu,
 } from "@/composables/useHoldToOpenMenu";
+import { speakerList } from "@/composables/speakerListState";
+import { groupColourName, showsGroupIcon } from "@/helpers/group_label";
+import { groupVolumeIds } from "@/helpers/group_volume";
 import { getPlayerMenuItems } from "@/helpers/player_menu_items";
 import { getSetupRequiredPlayerMenuItems } from "@/helpers/player_settings_actions";
 import {
@@ -374,6 +372,20 @@ const groupMemberCount = computed(() =>
 const groupMemberNames = computed(() => {
   if (!props.showGroupMemberNames) return [];
 
+  // with the server's list, a group is its rooms: a pair or permanent group
+  // is one room, and its own (hidden) speakers are never named
+  if (speakerList.value) {
+    const others = [...groupVolumeIds(props.player)]
+      .filter((playerId) => playerId !== props.player.player_id)
+      .map((playerId) => api.players[playerId])
+      .filter((member): member is Player => Boolean(member))
+      .map(getPlayerDisplayName);
+    if (others.length === 0) return [];
+    return props.player.type === PlayerType.GROUP
+      ? others
+      : [getPlayerDisplayName(props.player), ...others];
+  }
+
   const childNames = [...new Set(props.player.group_members)]
     .filter((playerId) => playerId !== props.player.player_id)
     .map((playerId) => api.players[playerId])
@@ -390,11 +402,14 @@ const groupMemberNames = computed(() => {
   return [getPlayerDisplayName(props.player), ...childNames];
 });
 
-const cardPlayerName = computed(() =>
-  props.groupMemberLayout === "subtitle-list" &&
-  groupMemberNames.value.length > 0
-    ? getPlayerDisplayName(props.player)
-    : getPlayerName(props.player, 27),
+// a group goes by its colour, whoever leads it
+const cardPlayerName = computed(
+  () =>
+    groupColourName(props.player.player_id) ??
+    (props.groupMemberLayout === "subtitle-list" &&
+    groupMemberNames.value.length > 0
+      ? getPlayerDisplayName(props.player)
+      : getPlayerName(props.player, 27)),
 );
 
 const displayedGroupMemberNames = computed(() => {
@@ -416,7 +431,8 @@ const accessibleGroupMemberNames = computed(() =>
 
 const accessiblePlayerLabel = computed(() =>
   [
-    getPlayerDisplayName(props.player),
+    groupColourName(props.player.player_id) ??
+      getPlayerDisplayName(props.player),
     ...accessibleGroupMemberNames.value,
     props.player.current_media?.title,
     mediaByline.value,

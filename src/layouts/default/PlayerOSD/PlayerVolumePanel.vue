@@ -65,6 +65,7 @@
 import PlayerIcon from "@/components/PlayerIcon.vue";
 import { Separator } from "@/components/ui/separator";
 import { speakerList } from "@/composables/speakerListState";
+import { groupColourName } from "@/helpers/group_label";
 import { groupVolumeIds } from "@/helpers/group_volume";
 import {
   getPlayerDisplayName,
@@ -106,7 +107,11 @@ const groupPlayer = computed(() => {
   const leader = list ? memberLeader(list, props.player.player_id) : undefined;
   return (leader && api.players[leader]) || props.player;
 });
-const playerDisplayName = computed(() => getPlayerName(props.player, 36));
+const playerDisplayName = computed(
+  () =>
+    groupColourName(groupPlayer.value.player_id) ??
+    getPlayerName(props.player, 36),
+);
 
 // the same panel backs the desktop volume popout, where a pointer has no
 // trouble with the resting rail

@@ -28,6 +28,7 @@
     <PlayerIcon
       v-else
       :icon="player.icon"
+      :grouped="!!group"
       :size="58"
       aria-hidden="true"
       class="text-foreground pointer-events-none absolute -top-2 -left-2.5 opacity-[0.07]"

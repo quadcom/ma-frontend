@@ -274,8 +274,14 @@
           class="py-2"
           @select="selectPlayer(player)"
         >
-          <PlayerIcon :icon="player.icon" :size="16" />
-          <span class="truncate">{{ getPlayerName(player) }}</span>
+          <PlayerIcon
+            :icon="player.icon"
+            :grouped="showsGroupIcon(player)"
+            :size="16"
+          />
+          <span class="truncate">{{
+            groupColourName(player.player_id) ?? getPlayerName(player)
+          }}</span>
           <Check
             v-if="player.player_id === store.activePlayerId"
             class="ml-auto size-4"
@@ -355,6 +361,7 @@ import {
   handleMenuBtnClick,
   handlePlayBtnClick,
 } from "@/helpers/media_item_actions";
+import { groupColourName, showsGroupIcon } from "@/helpers/group_label";
 import { getPlayerDisplayName, getPlayerName } from "@/helpers/players";
 import { getArtistsString } from "@/helpers/utils";
 import { getListItemProviderIconDomain } from "@/plugins/api/helpers";

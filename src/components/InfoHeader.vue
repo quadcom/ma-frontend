@@ -488,6 +488,7 @@ import {
   handlePlayBtnClick,
 } from "@/helpers/media_item_actions";
 import { parseBool } from "@/helpers/parse";
+import { groupColourName } from "@/helpers/group_label";
 import { getPlayerName } from "@/helpers/players";
 import {
   getAudiobookCollectionArtists,
@@ -674,7 +675,10 @@ const playActionInProgress = computed(() => {
 
 const playButtonText = computed(() => {
   if (!store.activePlayer) return $t("play");
-  return getPlayerName(store.activePlayer, 20);
+  return (
+    groupColourName(store.activePlayer.player_id) ??
+    getPlayerName(store.activePlayer, 20)
+  );
 });
 
 useEscapeBack(backButtonClick);

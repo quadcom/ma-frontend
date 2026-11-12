@@ -17,12 +17,17 @@
       <template v-if="showPlayMenuHeader">
         <DropdownMenuSub>
           <DropdownMenuSubTrigger class="gap-3 py-2">
-            <PlayerIcon :icon="store.activePlayer?.icon" :size="32" />
+            <PlayerIcon
+              :icon="store.activePlayer?.icon"
+              :grouped="showsGroupIcon(store.activePlayer)"
+              :size="32"
+            />
             <div class="flex flex-col">
               <span>{{ $t("play_on") }}</span>
               <span class="text-muted-foreground text-xs">{{
                 store.activePlayer
-                  ? getPlayerDisplayName(store.activePlayer)
+                  ? (groupColourName(store.activePlayer.player_id) ??
+                    getPlayerDisplayName(store.activePlayer))
                   : $t("no_player")
               }}</span>
             </div>
@@ -339,6 +344,7 @@ import {
 import { genresShareTaxonomy } from "@/helpers/genreTaxonomy";
 import { backFromMediaDetails } from "@/helpers/navigation";
 import { openMusicBrainzItem } from "@/helpers/open_musicbrainz_item";
+import { groupColourName, showsGroupIcon } from "@/helpers/group_label";
 import { getPlayerDisplayName, playerVisible } from "@/helpers/players";
 import { embeddedProviderDomain } from "@/helpers/provider_domain";
 import {

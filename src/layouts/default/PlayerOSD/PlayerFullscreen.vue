@@ -94,10 +94,7 @@
             <div v-else class="icon-thumb-large">
               <PlayerIcon
                 :icon="store.activePlayer?.icon"
-                :grouped="
-                  store.activePlayer?.type == PlayerType.PLAYER &&
-                  !!store.activePlayer?.group_members.length
-                "
+                :grouped="showsGroupIcon(store.activePlayer)"
                 :size="128"
               />
             </div>
@@ -110,11 +107,7 @@
               v-if="store.activePlayer?.powered == false"
               :style="`font-size: ${titleFontSize};font-weight:600;`"
             >
-              {{
-                store.activePlayer
-                  ? getPlayerDisplayName(store.activePlayer)
-                  : ""
-              }}
+              {{ activeName }}
             </v-card-title>
             <!-- current media title -->
             <v-card-title
@@ -133,11 +126,7 @@
               @click="store.showPlayersMenu = true"
             >
               <MarqueeText :sync="playerMarqueeSync">
-                {{
-                  store.activePlayer
-                    ? getPlayerDisplayName(store.activePlayer)
-                    : $t("no_player")
-                }}
+                {{ store.activePlayer ? activeName : $t("no_player") }}
               </MarqueeText>
             </v-card-title>
 
@@ -351,10 +340,7 @@
             <div v-else class="icon-thumb-large">
               <PlayerIcon
                 :icon="store.activePlayer?.icon"
-                :grouped="
-                  store.activePlayer?.type == PlayerType.PLAYER &&
-                  !!store.activePlayer?.group_members.length
-                "
+                :grouped="showsGroupIcon(store.activePlayer)"
                 :size="128"
               />
             </div>
@@ -491,10 +477,11 @@
           >
             <PlayerIcon
               :icon="store.activePlayer?.icon"
+              :grouped="showsGroupIcon(store.activePlayer)"
               :size="20"
               class="mr-1 size-5"
             />
-            {{ store.activePlayer ? getPlayerName(store.activePlayer) : "" }}
+            {{ activeShortName }}
           </Button>
         </div>
       </div>
@@ -524,6 +511,7 @@ import { expertModeSetting } from "@/helpers/expert_mode";
 import { MarqueeTextSync } from "@/helpers/marquee_text_sync";
 import { openCurrentTrackDetails } from "@/helpers/now_playing";
 import { getPlayerMenuItems } from "@/helpers/player_menu_items";
+import { groupColourName, showsGroupIcon } from "@/helpers/group_label";
 import { getPlayerDisplayName, getPlayerName } from "@/helpers/players";
 import {
   ImageColorPalette,
@@ -1039,7 +1027,20 @@ const subTitleFontSize = computed(() => {
 const playerSelectLabel = computed(() => {
   const selectPlayer = $t("tooltip.select_player");
   if (!store.activePlayer) return selectPlayer;
-  return `${selectPlayer}: ${getPlayerName(store.activePlayer)}`;
+  return `${selectPlayer}: ${activeShortName.value}`;
+});
+
+// a group goes by its colour, whoever leads it; a room on its own by its name
+const activeName = computed(() => {
+  const player = store.activePlayer;
+  if (!player) return "";
+  return groupColourName(player.player_id) ?? getPlayerDisplayName(player);
+});
+// as above, with upstream's "+N" for a room without the server's list
+const activeShortName = computed(() => {
+  const player = store.activePlayer;
+  if (!player) return "";
+  return groupColourName(player.player_id) ?? getPlayerName(player);
 });
 
 const showExpandedPlayerSelectButton = computed(() => {

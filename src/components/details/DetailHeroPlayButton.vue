@@ -28,6 +28,7 @@
 <script setup lang="ts">
 import MenuButton from "@/components/MenuButton.vue";
 import { handlePlayBtnClick } from "@/helpers/media_item_actions";
+import { groupColourName } from "@/helpers/group_label";
 import { getPlayerName, isBuiltinPlayer } from "@/helpers/players";
 import { roomInRow } from "@/helpers/room_in_row";
 import { api } from "@/plugins/api";
@@ -74,7 +75,10 @@ const playSentence = computed(() => {
   const player = store.activePlayer;
   if (!player) return $t("play");
   if (isBuiltinPlayer(player)) return $t("play_on_this_device");
-  return $t("play_on_player", { player: getPlayerName(player, Infinity) });
+  return $t("play_on_player", {
+    player:
+      groupColourName(player.player_id) ?? getPlayerName(player, Infinity),
+  });
 });
 
 // the player's name alone, for a row without room for the whole sentence
@@ -82,7 +86,7 @@ const playerName = computed(() => {
   const player = store.activePlayer;
   if (!player) return $t("play");
   if (isBuiltinPlayer(player)) return $t("this_device");
-  return getPlayerName(player, Infinity);
+  return groupColourName(player.player_id) ?? getPlayerName(player, Infinity);
 });
 
 // px the row leaves the button, and px the whole sentence needs; until the row
