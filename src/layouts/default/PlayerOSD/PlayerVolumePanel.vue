@@ -28,9 +28,12 @@
               {{ getPlayerDisplayName(volumePlayer) }}
             </span>
           </div>
+          <!-- a pair or permanent group is one room on its group volume -->
           <PlayerVolume
             :player="volumePlayer"
             :allow-wheel="allowWheel"
+            :prefer-group-volume="volumePlayer.type === PlayerType.GROUP"
+            :enable-popout="false"
             :expand-on-touch="expandOnTouch"
             width="100%"
           />
@@ -46,7 +49,7 @@
           {{ $t("grouped_volume") }}
         </p>
         <PlayerVolume
-          :player="player"
+          :player="groupPlayer"
           :allow-wheel="allowWheel"
           :prefer-group-volume="true"
           :enable-popout="false"
@@ -61,11 +64,14 @@
 <script setup lang="ts">
 import PlayerIcon from "@/components/PlayerIcon.vue";
 import { Separator } from "@/components/ui/separator";
+import { speakerList } from "@/composables/speakerListState";
+import { groupVolumeIds } from "@/helpers/group_volume";
 import {
   getPlayerDisplayName,
   getPlayerName,
   isPlayerGrouped,
 } from "@/helpers/players";
+import { memberLeader } from "@/helpers/speaker_list";
 import { api } from "@/plugins/api";
 import {
   type Player,
@@ -86,7 +92,20 @@ const props = withDefaults(
   },
 );
 
-const grouped = computed(() => isPlayerGrouped(props.player));
+// With the server's list, a group is its rooms: a pair or permanent group on
+// its own is one speaker, not a group
+const grouped = computed(() =>
+  speakerList.value
+    ? volumePlayers.value.length > 0
+    : isPlayerGrouped(props.player),
+);
+// the group slider moves the whole group, so it is the leader's, should a
+// member room be the one shown
+const groupPlayer = computed(() => {
+  const list = speakerList.value;
+  const leader = list ? memberLeader(list, props.player.player_id) : undefined;
+  return (leader && api.players[leader]) || props.player;
+});
 const playerDisplayName = computed(() => getPlayerName(props.player, 36));
 
 // the same panel backs the desktop volume popout, where a pointer has no
@@ -94,12 +113,8 @@ const playerDisplayName = computed(() => getPlayerName(props.player, 36));
 const expandOnTouch = computed(() => store.mobileLayout);
 
 const volumePlayers = computed(() => {
-  if (!grouped.value) return [];
-  const playerIds = new Set(props.player.group_members);
-  if (props.player.type !== PlayerType.GROUP) {
-    playerIds.add(props.player.player_id);
-  }
-  return [...playerIds]
+  if (!speakerList.value && !isPlayerGrouped(props.player)) return [];
+  return [...groupVolumeIds(props.player)]
     .map((playerId) => api.players[playerId])
     .filter(
       (player): player is Player =>

@@ -7,6 +7,7 @@ import {
   getWebPlayerName,
   groupMemberPickerVisible,
   isBuiltinPlayer,
+  isGroupMember,
   isPlayerGrouped,
   isSelectablePlayer,
   playerVisible,
@@ -21,6 +22,7 @@ import {
   type User,
   UserRole,
 } from "@/plugins/api/interfaces";
+import { speakerList } from "@/composables/speakerListState";
 import { api } from "@/plugins/api";
 import { store } from "@/plugins/store";
 import { webPlayer } from "@/plugins/web_player";
@@ -299,6 +301,43 @@ describe("playerVisible", () => {
 
     expect(playerVisible(player)).toBe(false);
     expect(playerVisible(player, true)).toBe(true);
+  });
+
+  it("hides a room the server lists in another room's group, a pair too", () => {
+    // a pair's group player is neither synced nor in an active group
+    const pair = createPlayer({ player_id: "mb", type: PlayerType.GROUP });
+    const entry = {
+      name: "",
+      area: null,
+      floor: null,
+      floor_level: null,
+      labels: [],
+      available: true,
+      is_permanent_group: true,
+      group_with: [],
+    };
+    speakerList.value = {
+      revision: 1,
+      grouping: "floor",
+      sections: [],
+      rooms: { mb: { ...entry, group_leader: "b" } },
+      groups: [{ leader: "b", colour: "orange", members: ["mb"] }],
+      permanent_groups: [],
+    };
+    try {
+      expect(isGroupMember(pair)).toBe(true);
+      expect(playerVisible(pair)).toBe(false);
+      expect(playerVisible(pair, true)).toBe(true);
+      // once it leaves the group it is offered again
+      speakerList.value = {
+        ...speakerList.value,
+        rooms: { mb: { ...entry, group_leader: null } },
+        groups: [],
+      };
+      expect(playerVisible(pair)).toBe(true);
+    } finally {
+      speakerList.value = undefined;
+    }
   });
 
   it("hides an unavailable player", () => {

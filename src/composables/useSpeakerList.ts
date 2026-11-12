@@ -1,16 +1,18 @@
+import { speakerList as list } from "@/composables/speakerListState";
 import { getHassProviderInstance } from "@/helpers/hass_controls";
 import {
   findHandovers,
   groupColourHex,
   isSpeakerListReply,
+  memberLeader,
   SPEAKER_LIST_COMMAND,
   SPEAKER_LIST_EVENT_SUFFIX,
-  type SpeakerListReply,
 } from "@/helpers/speaker_list";
 import { api } from "@/plugins/api";
 import { EventType, type EventMessage } from "@/plugins/api/interfaces";
 import { $t } from "@/plugins/i18n";
-import { shallowRef } from "vue";
+import { store } from "@/plugins/store";
+import { watch } from "vue";
 
 export interface GroupColour {
   /** The colour word, which is also the group's name: "Orange". */
@@ -20,9 +22,9 @@ export interface GroupColour {
 
 type HandoverListener = (oldLeader: string, newLeader: string) => void;
 
-// Module-wide, so the speaker list, the group editor and the player bar agree,
-// and the last good list survives closing the panel.
-const list = shallowRef<SpeakerListReply>();
+// The list is module-wide (speakerListState), so the speaker list, the group
+// editor and the player bar agree, and the last good list survives closing the
+// panel.
 const listeners = new Set<HandoverListener>();
 let started = false;
 let reading: Promise<void> | undefined;
@@ -89,12 +91,27 @@ function onProviderEvent(event: EventMessage) {
   void refresh();
 }
 
+// A member room is never controlled alone: whichever way it became the active
+// player (a home card, a "Play on" menu, a dashboard, or it was active before
+// it joined), the group's leader takes over. "A group is a group" (Adrian,
+// 2026-11-11).
+function followGroupLeader() {
+  const reply = list.value;
+  const active = store.activePlayerId;
+  if (!reply || !active) return;
+  const leader = memberLeader(reply, active);
+  if (leader && api.players[leader]) store.activePlayerId = leader;
+}
+
 // Listens for the app's lifetime, like the player list it follows, so it is
 // never unsubscribed.
 function start() {
   if (started) return;
   started = true;
   api.subscribe(EventType.PROVIDER_EVENT, onProviderEvent);
+  watch([list, () => store.activePlayerId], followGroupLeader, {
+    immediate: true,
+  });
   void refresh();
 }
 

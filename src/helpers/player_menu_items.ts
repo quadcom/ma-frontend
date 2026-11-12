@@ -11,7 +11,11 @@ import {
   Scope,
   PLAYER_CONTROL_NONE,
 } from "@/plugins/api/interfaces";
-import { getPlayerDisplayName, isSelectablePlayer } from "@/helpers/players";
+import {
+  getPlayerDisplayName,
+  isGroupMember,
+  isSelectablePlayer,
+} from "@/helpers/players";
 import { getSleepTimerMenuItem, sleepTimerActive } from "@/helpers/sleep_timer";
 import { resolveExternalSource } from "@/composables/externalSource";
 import { resolveActiveSourceId } from "@/composables/activeSource";
@@ -218,7 +222,7 @@ export const getPlayerMenuItems = (
             p.player_id != playerQueue!.queue_id &&
             p.player_id != player.player_id &&
             isSelectablePlayer(p) &&
-            !p.synced_to &&
+            !isGroupMember(p) &&
             !p.hide_in_ui,
         )
         .map((p) => {

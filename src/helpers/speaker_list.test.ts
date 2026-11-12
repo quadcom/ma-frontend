@@ -5,9 +5,11 @@ import {
   groupColourHex,
   groupLeaderOf,
   groupSpeakers,
+  groupVolumeRoomIds,
   isSpeakerListReply,
   listLeaders,
   listPlayingRoomIds,
+  memberLeader,
   permanentGroupOf,
   type SpeakerListReply,
   toSections,
@@ -161,6 +163,23 @@ describe("membership from the list", () => {
       "mb",
       "x",
     ]);
+  });
+
+  it("knows a member by the server's leader, a permanent group too", () => {
+    expect(memberLeader(withPermanent, "mb")).toBe("k");
+    expect(memberLeader(withPermanent, "d")).toBe("k");
+    expect(memberLeader(withPermanent, "k")).toBeUndefined();
+    expect(memberLeader(withPermanent, "g")).toBeUndefined();
+  });
+
+  it("gives a group's volume list its rooms, wherever the room sits in it", () => {
+    expect(groupVolumeRoomIds(withPermanent, "k")).toEqual(["k", "d", "mb"]);
+    expect(groupVolumeRoomIds(withPermanent, "mb")).toEqual(["k", "d", "mb"]);
+    // a room on its own, a pair or permanent group on its own: no list
+    expect(groupVolumeRoomIds(withPermanent, "g")).toEqual([]);
+    expect(groupVolumeRoomIds({ ...withPermanent, groups: [] }, "mb")).toEqual(
+      [],
+    );
   });
 
   it("leaves out a room that plays inside another room's group", () => {

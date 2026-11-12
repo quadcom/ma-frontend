@@ -143,6 +143,34 @@ export function groupSpeakers(group: SpeakerListGroup): string[] {
 }
 
 /**
+ * The leader of the group this room is a member of, or undefined when it leads
+ * one or is on its own. A member is never selected or controlled alone: "A
+ * group is a group" (Adrian, 2026-11-11). This covers a pair or permanent
+ * group, which the players don't mark as synced.
+ */
+export function memberLeader(
+  reply: SpeakerListReply,
+  roomId: string,
+): string | undefined {
+  const leader = groupLeaderOf(reply, roomId);
+  return leader && leader !== roomId ? leader : undefined;
+}
+
+/**
+ * The rooms that get their own volume slider in a group's volume list: every
+ * room of the group this room leads or is in, or none when it is on its own.
+ * A pair or permanent group is one room; its own speakers never get a slider.
+ */
+export function groupVolumeRoomIds(
+  reply: SpeakerListReply,
+  roomId: string,
+): string[] {
+  const leader = groupLeaderOf(reply, roomId);
+  const group = reply.groups.find((g) => g.leader === leader);
+  return group ? groupSpeakers(group) : [];
+}
+
+/**
  * Leaders that left their group, mapped to the room that now leads it. The
  * server keeps a group's colour when another room takes it over, so a colour
  * that moves from one leader to a new one is the same group.

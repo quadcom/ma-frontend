@@ -55,9 +55,12 @@
             <div class="group-popout-label">
               {{ truncateString(getPlayerDisplayName(child), 20) }}
             </div>
+            <!-- a pair or permanent group is one room on its group volume -->
             <PlayerVolume
               :player="child"
               width="100%"
+              :prefer-group-volume="child.type === PlayerType.GROUP"
+              :enable-popout="false"
               :allow-wheel="allowWheel"
             />
           </div>
@@ -185,6 +188,7 @@
 import { Slider } from "@/components/ui/slider";
 import { useUserPreferences } from "@/composables/userPreferences";
 import { deviceInset } from "@/helpers/device";
+import { groupVolumeIds } from "@/helpers/group_volume";
 import { getPlayerDisplayName } from "@/helpers/players";
 import { getVolumeIconComponent, truncateString } from "@/helpers/utils";
 import { cn } from "@/lib/utils";
@@ -325,10 +329,7 @@ let lastPopoutToggleTime = 0;
 
 const childPlayers = computed(() => {
   if (!isGroup.value) return [];
-  const playerIds = new Set(props.player.group_members);
-  if (props.player.type !== PlayerType.GROUP) {
-    playerIds.add(props.player.player_id);
-  }
+  const playerIds = groupVolumeIds(props.player);
   const items: Player[] = [];
   for (const childId of playerIds) {
     const child = api?.players[childId];

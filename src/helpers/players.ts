@@ -1,5 +1,7 @@
 // Shared helpers that decide which players this device owns, how players are
 // named and which of them may be shown in the UI.
+import { speakerList } from "@/composables/speakerListState";
+import { memberLeader } from "@/helpers/speaker_list";
 import { truncateString } from "@/helpers/utils";
 import { api } from "@/plugins/api";
 import { getDeviceInfo, getDeviceName } from "@/plugins/api/helpers";
@@ -15,6 +17,18 @@ import { store } from "@/plugins/store";
 import { webPlayer } from "@/plugins/web_player";
 
 export { isPlayerGrouped } from "@/helpers/player_grouping";
+
+/**
+ * Whether the player plays as part of another player's group: synced to it, in
+ * a group player, or, by the server's speaker list, a member room (which also
+ * covers a pair or permanent group joined to a group, which the players don't
+ * mark as synced). A member is never offered or controlled alone.
+ */
+export const isGroupMember = function (player: Player): boolean {
+  if (player.synced_to || player.active_group) return true;
+  const list = speakerList.value;
+  return !!list && memberLeader(list, player.player_id) !== undefined;
+};
 
 /**
  * Check if the player is (or streams to) the built-in player of this device.
@@ -106,10 +120,7 @@ export const playerVisible = function (
   // A capture-only device renders nothing: list it only where it is presented
   // as an audio input (opt-in via allowSources), never among playback targets.
   if (player.type === PlayerType.SOURCE && !allowSources) return false;
-  if (player.synced_to && !allowGroupChilds) {
-    return false;
-  }
-  if (player.active_group && !allowGroupChilds) return false;
+  if (!allowGroupChilds && isGroupMember(player)) return false;
   // A player that needs setup is serialized as unavailable. Only surface it
   // (dimmed, with a "Setup required" affordance) where a click launches its
   // setup flow (opt-in via allowNeedsSetup); elsewhere a click would select or
