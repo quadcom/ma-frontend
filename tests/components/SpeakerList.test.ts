@@ -266,6 +266,54 @@ describe("SpeakerList", () => {
 
     expect(wrapper.find('[aria-label="play"]').exists()).toBe(false);
   });
+
+  // A room with a top row keeps its card, so nothing jumps (Adrian, 2026-11-13).
+  const rowIds = (wrapper: ReturnType<typeof mount>) =>
+    wrapper
+      .findAll("[data-playing-room-row]")
+      .map((row) => row.attributes("data-player-id"));
+  const cardCount = (wrapper: ReturnType<typeof mount>, id: string) =>
+    wrapper.findAll(`[data-room-card][data-player-id="${id}"]`).length;
+
+  it("keeps a playing room's card under its heading", () => {
+    holder.list.value = kitchenGroup();
+    api.players.o.playback_state = PlaybackState.PLAYING;
+    const wrapper = mountList();
+
+    expect(rowIds(wrapper)).toEqual(["k", "o"]);
+    expect(cardCount(wrapper, "o")).toBe(1);
+  });
+
+  it("keeps the picked idle room's card under its heading", () => {
+    holder.list.value = kitchenGroup();
+    const wrapper = mountList("g");
+
+    expect(rowIds(wrapper)).toEqual(["k", "g"]);
+    expect(cardCount(wrapper, "g")).toBe(1);
+    expect(wrapper.findAll("h3").map((h) => h.text())).toEqual([
+      "Main",
+      "Basement",
+      "this_device",
+    ]);
+  });
+
+  it("keeps this device's heading when it has a row", () => {
+    holder.list.value = kitchenGroup();
+    const wrapper = mountList("builtin");
+
+    expect(rowIds(wrapper)).toEqual(["k", "builtin"]);
+    expect(cardCount(wrapper, "builtin")).toBe(1);
+    expect(wrapper.findAll("h3").map((h) => h.text())).toContain("this_device");
+  });
+
+  it("draws no top rows when nothing plays and nothing is picked", () => {
+    holder.list.value = kitchenGroup();
+    api.players.k.playback_state = PlaybackState.IDLE;
+    const wrapper = mountList();
+
+    expect(rowIds(wrapper)).toEqual([]);
+    expect(wrapper.find('[data-slot="separator"]').exists()).toBe(false);
+  });
 });
 
 describe("GroupEditor", () => {

@@ -6,22 +6,20 @@
     >
       {{ $t("no_content") }}
     </p>
-    <!-- A group's row comes and goes with its speakers, a big shift: it opens
-         and folds away where it stands, fading, so what is below glides
-         instead of jumping (Adrian, 2026-11-05: 0.5 s, ease-out). A lone room
-         changes at once. -->
+    <!-- Every row, a lone room's or a group's, opens and folds away where it
+         stands, fading, so what is below glides instead of jumping (Adrian,
+         2026-11-05: 0.5 s, ease-out; 2026-11-13: lone rooms too). -->
     <TransitionGroup
       tag="div"
       class="px-4 pt-1"
-      enter-active-class="transition-[grid-template-rows,opacity] duration-500 ease-out data-lone:duration-0"
-      leave-active-class="transition-[grid-template-rows,opacity] duration-500 ease-out data-lone:duration-0"
-      enter-from-class="grid-rows-[0fr] opacity-0 data-lone:grid-rows-[1fr] data-lone:opacity-100"
-      leave-to-class="grid-rows-[0fr] opacity-0 data-lone:grid-rows-[1fr] data-lone:opacity-100"
+      enter-active-class="transition-[grid-template-rows,opacity] duration-500 ease-out"
+      leave-active-class="transition-[grid-template-rows,opacity] duration-500 ease-out"
+      enter-from-class="grid-rows-[0fr] opacity-0"
+      leave-to-class="grid-rows-[0fr] opacity-0"
     >
       <div
         v-for="row in topRows"
         :key="row.player.player_id"
-        :data-lone="row.speakers.length === 0 ? '' : undefined"
         class="grid grid-rows-[1fr]"
       >
         <div class="min-h-0 space-y-1.5 overflow-hidden pb-2">
@@ -96,7 +94,8 @@ import { computed, watch } from "vue";
 /**
  * The speaker list: a row per playing room or group (plus the active one) on
  * top, a group's speakers as cards under its row, then every room as a square
- * card under the headings the server sends, and this device last. A group's
+ * card under the headings the server sends, and this device last. A room with
+ * a row keeps its card too, so nothing jumps (Adrian, 2026-11-13). A group's
  * speakers stay greyed under their headings, marked with the group's colour;
  * a click on one selects its group. On a server that does not build the list,
  * the rooms are one plain block.
@@ -167,28 +166,13 @@ const topRows = computed(() =>
   }),
 );
 
-// A room on its own in the top rows leaves its heading; a group's speakers stay.
-const loneTopIds = computed(
-  () =>
-    new Set(
-      topRows.value
-        .filter((row) => row.speakers.length === 0)
-        .map((row) => row.player.player_id),
-    ),
-);
+const builtinRoom = computed(() => rooms.value.find((p) => isBuiltinPlayer(p)));
 
-const builtinRoom = computed(() =>
-  rooms.value.find(
-    (p) => isBuiltinPlayer(p) && !loneTopIds.value.has(p.player_id),
-  ),
-);
-
-// The server's sections as sent; the app only lifts out the rooms it shows
-// elsewhere (a lone top row, this device).
+// The server's sections as sent; the app only lifts out this device, which
+// gets its own heading last.
 const sections = computed(() => {
-  const skip = new Set(loneTopIds.value);
-  const builtin = rooms.value.find((p) => isBuiltinPlayer(p));
-  if (builtin) skip.add(builtin.player_id);
+  const skip = new Set<string>();
+  if (builtinRoom.value) skip.add(builtinRoom.value.player_id);
   if (list.value) return toSections(list.value.sections, api.players, skip);
   return plainSection(rooms.value.filter((p) => !skip.has(p.player_id)));
 });
