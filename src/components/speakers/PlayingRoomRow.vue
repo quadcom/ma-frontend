@@ -2,7 +2,7 @@
   <div
     data-playing-room-row
     :data-player-id="player.player_id"
-    class="bg-muted relative min-h-[84px] overflow-hidden rounded-[8px] border max-[500px]:rounded-[4px]"
+    class="bg-muted relative h-[84px] overflow-hidden rounded-[8px] border max-[500px]:rounded-[4px]"
     :class="active ? 'border-primary' : 'border-transparent'"
   >
     <button
@@ -40,12 +40,15 @@
       class="pointer-events-none absolute top-0 right-0 z-[1] size-[30px] [clip-path:polygon(0_0,100%_0,100%_100%)]"
       :style="{ backgroundColor: group.hex }"
     ></span>
+    <!-- Every row is one height, whatever it shows: each line stays on one
+         line, so picking another room never moves the list (Adrian,
+         2026-11-13). -->
     <div
       class="pointer-events-none relative z-[1] flex flex-col py-2.5 pb-3 pl-4"
       :class="media && canGroup ? 'pr-[92px]' : 'pr-[52px]'"
     >
       <p
-        class="text-base leading-[22px]"
+        class="truncate text-base leading-[22px]"
         :class="group ? 'font-semibold' : 'font-medium'"
       >
         {{ title }}
@@ -53,7 +56,7 @@
       <template v-if="media">
         <p
           v-if="mediaLine"
-          class="text-sm leading-5"
+          class="truncate text-sm leading-5"
           :class="artUrl ? 'text-foreground/85' : 'text-muted-foreground'"
         >
           {{ mediaLine }}
@@ -62,11 +65,11 @@
           class="mt-0.5 flex items-center gap-1.5 text-xs leading-4"
           :class="artUrl ? 'text-foreground/75' : 'text-muted-foreground/80'"
         >
-          <AudioLines v-if="isPlaying" class="text-primary size-3" />
-          {{ details }}
+          <AudioLines v-if="isPlaying" class="text-primary size-3 shrink-0" />
+          <span class="truncate">{{ details }}</span>
         </p>
       </template>
-      <p v-else class="text-muted-foreground text-sm leading-5">
+      <p v-else class="text-muted-foreground truncate text-sm leading-5">
         {{ $t("player_select.nothing_playing") }}
       </p>
     </div>
