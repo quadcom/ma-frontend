@@ -67,18 +67,25 @@ export function playingRoomIds(
 }
 
 /**
- * Append-only order of the top rows. A room keeps its place until it stops
- * playing and is not the active room; new ones go to the end, so switching the
- * active room never reshuffles the rows.
+ * Order of the top rows. A room keeps its place until it stops playing and is
+ * not the active room. A new room takes the place of one that just left (a
+ * newly picked room replaces the one picked before, in its slot), and any
+ * others go to the end, so switching the active room never reshuffles or
+ * resizes the rows (Adrian, 2026-11-13).
  */
 export function nextTopOrder(
   previous: string[],
   playingIds: string[],
   activeId: string | undefined,
 ): string[] {
-  const wanted = activeId ? [...playingIds, activeId] : playingIds;
-  const keep = previous.filter((id) => wanted.includes(id));
-  return [...keep, ...new Set(wanted.filter((id) => !keep.includes(id)))];
+  const wanted = new Set(activeId ? [...playingIds, activeId] : playingIds);
+  const incoming = [...wanted].filter((id) => !previous.includes(id));
+  const order = previous.flatMap((id) => {
+    if (wanted.has(id)) return [id];
+    const next = incoming.shift();
+    return next ? [next] : [];
+  });
+  return [...order, ...incoming];
 }
 
 /** A permanent member of the leader's group, which can never be taken out. */

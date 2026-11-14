@@ -6,42 +6,57 @@
     >
       {{ $t("no_content") }}
     </p>
-    <!-- Every row, a lone room's or a group's, opens and folds away where it
-         stands, fading, so what is below glides instead of jumping (Adrian,
-         2026-11-05: 0.5 s, ease-out; 2026-11-13: lone rooms too). -->
+    <!-- The top rows are slots. A new slot opens and an empty one folds away
+         where it stands, fading, so what is below glides instead of jumping
+         (0.7 s, ease-out). The open height is set only while it animates: on
+         the slot itself it would always beat the closed one (every utility
+         is !important), and the slot would jump instead of sliding. -->
     <TransitionGroup
       tag="div"
       class="px-4 pt-1"
-      enter-active-class="transition-[grid-template-rows,opacity] duration-500 ease-out"
-      leave-active-class="transition-[grid-template-rows,opacity] duration-500 ease-out"
+      enter-active-class="transition-[grid-template-rows,opacity] duration-700 ease-out"
+      leave-active-class="transition-[grid-template-rows,opacity] duration-700 ease-out"
       enter-from-class="grid-rows-[0fr] opacity-0"
+      enter-to-class="grid-rows-[1fr]"
+      leave-from-class="grid-rows-[1fr]"
       leave-to-class="grid-rows-[0fr] opacity-0"
     >
-      <div
-        v-for="row in topRows"
-        :key="row.player.player_id"
-        class="grid grid-rows-[1fr]"
-      >
-        <div class="min-h-0 space-y-1.5 overflow-hidden pb-2">
-          <PlayingRoomRow
-            :player="row.player"
-            :active="row.player.player_id === activeId"
-            :group="row.group"
-            @select="emit('select', $event)"
-            @open-group-editor="emit('openGroupEditor', $event)"
-          />
-          <div
-            v-if="row.speakers.length > 0"
-            class="grid grid-cols-4 gap-2 pl-4"
+      <div v-for="(row, slot) in topRows" :key="slot" class="grid">
+        <!-- A room that takes over a slot (another room picked) keeps its
+             space: the old room fades out, then the new one fades in on the
+             same spot (Adrian, 2026-11-13). Both sit in one grid cell. -->
+        <div class="grid min-h-0 overflow-hidden">
+          <Transition
+            leave-active-class="transition-opacity duration-350 ease-in"
+            leave-to-class="opacity-0"
+            enter-active-class="transition-opacity duration-350 delay-350 ease-out"
+            enter-from-class="opacity-0"
           >
-            <RoomCard
-              v-for="speaker in row.speakers"
-              :key="speaker.player_id"
-              :player="speaker"
-              :group="row.group"
-              inert
-            />
-          </div>
+            <div
+              :key="row.player.player_id"
+              class="col-start-1 row-start-1 space-y-1.5 pb-2"
+            >
+              <PlayingRoomRow
+                :player="row.player"
+                :active="row.player.player_id === activeId"
+                :group="row.group"
+                @select="emit('select', $event)"
+                @open-group-editor="emit('openGroupEditor', $event)"
+              />
+              <div
+                v-if="row.speakers.length > 0"
+                class="grid grid-cols-4 gap-2 pl-4"
+              >
+                <RoomCard
+                  v-for="speaker in row.speakers"
+                  :key="speaker.player_id"
+                  :player="speaker"
+                  :group="row.group"
+                  inert
+                />
+              </div>
+            </div>
+          </Transition>
         </div>
       </div>
     </TransitionGroup>

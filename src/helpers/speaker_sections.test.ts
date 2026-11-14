@@ -58,6 +58,10 @@ describe("top rows", () => {
   it("drops a room once it stops playing and is not active", () => {
     expect(nextTopOrder(["k", "p"], ["p"], "p")).toEqual(["p"]);
   });
+  it("puts a newly picked room in the slot of the one it replaces", () => {
+    expect(nextTopOrder(["k", "g"], ["k"], "o")).toEqual(["k", "o"]);
+    expect(nextTopOrder(["g", "k"], ["k"], "o")).toEqual(["o", "k"]);
+  });
 });
 
 describe("group editor", () => {
